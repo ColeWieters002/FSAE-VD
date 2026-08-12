@@ -27,7 +27,7 @@ def FY(X, p, fz0):
 
     (PCY1, PDY1, PDY2, PDY3, PEY1, PEY2,PEY3,PEY4,
      PKY1, PKY2, PKY3, PHY1, PHY2, PHY3,
-     PVY1, PVY2, PVY3, PVY4) = p
+     PVY1, PVY2, PVY3, PVY4) = p 
 
     FZ0 = fz0 * L["LFZO"]
     DFZ = (FZ - FZ0) / FZ0
