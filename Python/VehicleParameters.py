@@ -13,8 +13,8 @@ SprungMass_kg = Mass_kg-42.0 #Assumed 42kg Unsprung
 #SprungRollInertia
 #SprungPitchInertia
 
-#FrontRollStiffness
-#RearRollStiffness
+FrontRollStiffness = 3000 #N/m
+RearRollStiffness = 1000 #N/m
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
@@ -48,7 +48,7 @@ TirePressure_bar = .827 #12psi
 RollResistance = .4
 
 #Tire Models
-Hoosier_16x75_10_R20 = "FSAE-VD\\Python\\Tires\\Hoosier_16x75_10_R20.tir"
+Hoosier_16x75_10_R20 = "Python\\Tires\\Hoosier_16x75_10_R20.tir"
 Hoosier_18x75_10_R20 = "Hoosier_18x75_10_R20.tir"
 Hoosier_16x75_10_LC0 = "Hoosier_16x75_10_LC0.tir"
 TireModel = Hoosier_16x75_10_R20
