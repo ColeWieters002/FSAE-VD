@@ -14,7 +14,7 @@ def main():
     print(f"Loaded tire: {tire.path}")
 
     #run that john
-    Vx    = 11.75 #m/s ~25mph
+    Vx    = 10 #m/s ~25mph
     delta = 10 * DEG2RAD #rad
 
     result = solve(Vx, delta, vp, tire)

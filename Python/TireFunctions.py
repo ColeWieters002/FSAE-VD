@@ -115,3 +115,4 @@ def FX(X, p, fz0):
     EX = (PEX1 + PEX2 * DFZ + PEX3 * DFZ ** 2) * (1.0 - PEX4 * np.sign(KAPPAX)) * L['LEX']
 
     return DX * np.sin(CX * np.arctan(BX * KAPPAX - EX * (BX * KAPPAX - np.arctan(BX * KAPPAX)))) + SVX
+

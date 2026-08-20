@@ -2,6 +2,7 @@ import numpy as np
 import TireFunctions as MF
 import VehicleParameters as vp
 from scipy.optimize import least_squares as ls
+import matplotlib.pyplot as plt
 
 # Unit Conversions
 LBF2N   = 4.4482216
@@ -30,6 +31,15 @@ class Tire:
 
     def FX(self, SR, FZ_lbf, IA_deg):
         return MF.FX((SR, FZ_lbf, IA_deg), self.p_fx, self.fz0)
+    
+    def GraphSAvsFY(self, graphFz = 100, graphInclinationAngle = 10):
+        graphFz *= LBF2N
+        graphInclinationAngle *= DEG2RAD
+        graphSlipAngle = np.array(np.linspace(-20, 20, 50))
+        graphLatForce = self.FY(graphSlipAngle,graphFz,graphInclinationAngle)
+        plt.title("Slip Angle vs. Lateral Force")
+        plt.plot(graphSlipAngle,graphLatForce)
+        plt.show()
 
     @staticmethod
     def _parse_tir(path):
@@ -138,10 +148,12 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         return [R1, R2, R3]
     result = ls(residual, np.array([0.0, 0.0, 0.0]))
     if result.cost > 1e-6:
-        print(f"warning: residual not driven to zero (cost={result.cost:.2e})")
+        raise RuntimeError(
+            f"Solver failed to converge: cost={result.cost:.2e}"
+        )
+
     beta, r, Ay = result.x
     return beta, r, Ay
-
 
 
 
