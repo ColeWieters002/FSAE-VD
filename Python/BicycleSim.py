@@ -67,7 +67,7 @@ class Tire:
         return sections
 
 
-def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-3, tol_Ay=1e-3):
+def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-3, tol_Ay=1e-3, cost=1e-6):
     #Base Variables
     L = vp.Wheelbase_mm / 1000.0
     a = L * (1.0 - vp.WeightDist)     #CG to Front Axle (m)
@@ -147,7 +147,7 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
 
         return [R1, R2, R3]
     result = ls(residual, np.array([0.0, 0.0, 0.0]))
-    if result.cost > 1e-6:
+    if result.cost > cost:
         raise RuntimeError(
             f"Solver failed to converge: cost={result.cost:.2e}"
         )
