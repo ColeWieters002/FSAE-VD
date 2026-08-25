@@ -166,15 +166,3 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         print(f"warning: residual not driven to zero (cost={result.cost:.2e})")
     beta, r, Ay = result.x
     return beta, r, Ay
-
-
-
-
-
-
-
-
-
-
-
-
