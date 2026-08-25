@@ -48,7 +48,7 @@ TirePressure_bar = .827 #12psi
 RollResistance = .4
 
 #Tire Models
-Hoosier_16x75_10_R20 = "FSAE-VD\\Python\\Tires\\Hoosier_16x75_10_R20.tir"
+Hoosier_16x75_10_R20 = "Python\\Tires\\Hoosier_16x75_10_R20.tir"
 Hoosier_18x75_10_R20 = "Hoosier_18x75_10_R20.tir"
 Hoosier_16x75_10_LC0 = "Hoosier_16x75_10_LC0.tir"
 TireModel = Hoosier_16x75_10_R20
