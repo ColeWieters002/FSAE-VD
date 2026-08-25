@@ -23,8 +23,8 @@ RearRollStiffness = 1000 #N/m
 #KPI
 #CasterAngle
 
-#FrontStaticToe
-#RearStaticToe
+FrontStaticToe = 0 #deg
+RearStaticToe = 0 #deg
 
 #Front and Rear Camber will be separated later
 CamberBounds = [0, -2, -3] #deg
