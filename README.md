@@ -33,12 +33,51 @@ Values yet to be set
 * F&R Toe
 
 ### TireFunctions.py
-This file deciphers the .tir file that stores all of the tire data and translates it into 3 calculators:  
+This file intakes the BicycleSim.py coefficients and translates it into 3 calculators:  
 * Fy
+  * Converts inputs into Lateral Force
   * Inputs:
-    * Slip Angle
-    * 
-
+    * X = (Slip Angle (deg), Normal Force(lbf), Incination Angle(deg))
+    * Lateral Components
+    * Nominal Load Coefficients
 * Fx
+  * Converts inputs into Longitudnal Force
+  * Inputs:
+    * X = (Slip Angle (deg), Normal Force(lbf), Incination Angle(deg))
+    * Aligning Coefficients
+    * Lateral Components
+    * Nominal Load Coefficients
+    * Radius
 * Mz
-With these values 
+  * Converts inputs into Aligning Force
+  * Inputs:
+    * X = (Slip Angle (deg), Normal Force(lbf), Incination Angle(deg))
+    * Lateral Components
+    * Nominal Load Coefficients
+### BicycleSim.py
+This file creates the tire class and parses the .tir file into sorted arrays for the TireFunctions.py file to use. It also includes the solve function that imports Vehicle Parameters and uses them to solve using scipy's optimize.
+* Tire (Class)
+  * FY - Outputs lateral force for that tire.
+  * FX - Outputs longitudinal force for that tire.
+  * Mz - Outputs Aligning force for that tire.
+* Solve (Function)
+  * Input:
+    * Vx - Longitudinal Velocity
+    * delta - Steering Angle
+    * vp - Vehicle Parameters
+    * tire - Tire that is being solved for
+  * Output:
+    * beta - Slideslip Angle
+    * r - Yaw Rate
+    * Ay - Lateral Acceleration
+### BicycleMain.py
+This file combines all previously mentioned files to simulate a steady state estimation for a corner.
+* Inputs:
+  * Vx - longitudinal Velocity (m/s)
+  * delta - Steering Angle (deg)
+* Outputs:
+  * Sideslip Angle
+  * Turn Radius
+  * Skidpad Time - Time it takes to do a complete circle
+
+  
