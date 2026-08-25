@@ -76,7 +76,7 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
     g = vp.Gravity
 
     def residual(x):
-        #Initial Guess
+    #Initial Guess
         beta, r, Ay = x   #sideslip (rad), yaw rate (rad/s), lateral accel (m/s^2)
 
         #BLOCK for it in range(max_iter):
@@ -87,26 +87,51 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         alpha_RL = (Vy-r*b)/(Vx-r*(vp.RTrackwidth_mm/1000/2))
         alpha_RR = (Vy-r*b)/(Vx+r*(vp.RTrackwidth_mm/1000/2))
 
-        #Base FZs (N)
+    #Base FZs (N)
         FZ_FL = m*g*vp.WeightDist/2
         FZ_FR = m*g*vp.WeightDist/2
         FZ_RL = m*g*(1-vp.WeightDist)/2
         FZ_RR = m*g*(1-vp.WeightDist)/2
 
-        #Downforce per tire (N)
+    #Downforce per tire (N)
         DF_FL = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*vp.AeroBalance*.5
         DF_FR = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*vp.AeroBalance*.5
         DF_RL = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
         DF_RR = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
 
-        #Will add Lateral Load Transfer here later
+    # Lateral Load Transfer
 
-        FZ_FL = FZ_FL + DF_FL
-        FZ_FR = FZ_FR + DF_FR
-        FZ_RL = FZ_RL + DF_RL
-        FZ_RR = FZ_RR + DF_RR
+        # Roll stiffness distribution
+        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
 
-        #Find FY
+        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
+        RearRollDistribution = vp.RearRollStiffness / Kphi_Total
+
+        # Lateral force at the CG
+        LateralForce = m * Ay
+
+        # Roll moment about the effective roll axis
+        # Use CG height and roll-center height
+        FrontRC = vp.FrontRollCenter_mm / 1000.0
+        RearRC = vp.RearRollCenter_mm / 1000.0
+
+        # Effective roll center height at the CG
+        RollCenter = (FrontRC * b + RearRC * a) / L
+
+        RollMoment = LateralForce * (vp.CG_mm / 1000.0 - RollCenter)
+
+        # Split roll moment between front and rear
+        FrontRollMoment = RollMoment * FrontRollDistribution
+        RearRollMoment = RollMoment * RearRollDistribution
+
+        # Convert roll moments into left/right tire load changes
+        DF_FL += -FrontRollMoment / (vp.FTrackwidth_mm / 1000.0)
+        DF_FR +=  FrontRollMoment / (vp.FTrackwidth_mm / 1000.0)
+
+        DF_RL += -RearRollMoment / (vp.RTrackwidth_mm / 1000.0)
+        DF_RR +=  RearRollMoment / (vp.RTrackwidth_mm / 1000.0)
+
+    #Find FY
         gamma_FL = vp.Camber_By_Travel_deg(0)
         gamma_FR = vp.Camber_By_Travel_deg(0)
         gamma_RL = vp.Camber_By_Travel_deg(0)
@@ -122,13 +147,13 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         MZ_RL = tire.MZ(alpha_RL*RAD2DEG, FZ_RL*N2LBF, gamma_RL)*FTLB2NM
         MZ_RR = tire.MZ(alpha_RR*RAD2DEG, FZ_RR*N2LBF, gamma_RR)*FTLB2NM
 
-        #Force-Moment Balance
+    #Force-Moment Balance
         FYF = FY_FL + FY_FR
         FYR = FY_RL + FY_RR
 
         MZ_Total = MZ_FL + MZ_FR + MZ_RL + MZ_RR
 
-        #Make Residuals
+    #Make Residuals
         R1 = m*Ay - (FYF*np.cos(delta)+FYR)
         R2 = a*FYF*np.cos(delta) - b*FYR + MZ_Total
         R3 = Ay - Vx*r
@@ -154,14 +179,3 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
 
     beta, r, Ay = result.x
     return beta, r, Ay
-
-
-
-
-
-
-
-
-
-
-

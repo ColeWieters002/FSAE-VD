@@ -14,10 +14,10 @@ def main():
     print(f"Loaded tire: {tire.path}")
 
     #run that john
-    Vx    = 11.25 #m/s ~25mph
+    Vx    = 11.75 #m/s ~25mph
     delta = 10 * DEG2RAD #rad
 
-    result = solve(Vx, delta, vp, tire, cost=1e+16)
+    result = solve(Vx, delta, vp, tire)
     beta, r, Ay = result
     end = time.perf_counter()
     Runtime = end-start

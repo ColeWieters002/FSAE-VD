@@ -13,8 +13,8 @@ SprungMass_kg = Mass_kg-42.0 #Assumed 42kg Unsprung
 #SprungRollInertia
 #SprungPitchInertia
 
-#FrontRollStiffness
-#RearRollStiffness
+FrontRollStiffness = 3000 #N/m
+RearRollStiffness = 1000 #N/m
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
