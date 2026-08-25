@@ -66,7 +66,7 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
     g = vp.Gravity
 
     def residual(x):
-     #Initial Guess
+    #Initial Guess
         beta, r, Ay = x   #sideslip (rad), yaw rate (rad/s), lateral accel (m/s^2)
 
         #BLOCK for it in range(max_iter):
@@ -143,7 +143,7 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
 
         MZ_Total = MZ_FL + MZ_FR + MZ_RL + MZ_RR
 
-     #Make Residuals
+    #Make Residuals
         R1 = m*Ay - (FYF*np.cos(delta)+FYR)
         R2 = a*FYF*np.cos(delta) - b*FYR + MZ_Total
         R3 = Ay - Vx*r
