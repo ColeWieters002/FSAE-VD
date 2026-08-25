@@ -1,5 +1,8 @@
-#Vehicle Parameters
+import os
 from scipy.interpolate import interp1d as curve
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_TIRE_DIR = os.path.join(_THIS_DIR, "Tires")
 
 Mass_kg = 176.0 #~390lbs
 CG_mm = 324.0 #~12.75in
@@ -13,7 +16,7 @@ SprungMass_kg = Mass_kg-42.0 #Assumed 42kg Unsprung
 #SprungRollInertia
 #SprungPitchInertia
 
-FrontRollStiffness = 3000 #N/m
+FrontRollStiffness = 1000 #N/m
 RearRollStiffness = 1000 #N/m
 #FrontHeaveStiffness
 #RearHeaveStiffness
@@ -48,11 +51,7 @@ TirePressure_bar = .827 #12psi
 RollResistance = .4
 
 #Tire Models
-Hoosier_16x75_10_R20 = "Python\\Tires\\Hoosier_16x75_10_R20.tir"
-Hoosier_18x75_10_R20 = "Hoosier_18x75_10_R20.tir"
-Hoosier_16x75_10_LC0 = "Hoosier_16x75_10_LC0.tir"
+Hoosier_16x75_10_R20 = os.path.join(_TIRE_DIR, "Hoosier_16x75_10_R20.tir")
+Hoosier_18x75_10_R20 = os.path.join(_TIRE_DIR, "Hoosier_18x75_10_R20.tir")
+Hoosier_16x75_10_LC0 = os.path.join(_TIRE_DIR, "Hoosier_16x75_10_LC0.tir")
 TireModel = Hoosier_16x75_10_R20
-
-
-
-
