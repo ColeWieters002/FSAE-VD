@@ -1,15 +1,9 @@
 import numpy as np
 import TireFunctions as MF
 import VehicleParameters as vp
+from VehicleParameters import RAD2DEG, L
 from scipy.optimize import least_squares as ls
 
-# Unit Conversions
-LBF2N   = 4.4482216
-N2LBF   = 1.0 / LBF2N
-FTLB2NM = 1.3558
-FT2M    = 0.3048
-RAD2DEG = 180.0 / np.pi
-DEG2RAD = np.pi / 180.0
 
 class Tire:
     def __init__(self, tir_path, pressure_bar=None):
@@ -72,10 +66,11 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         #BLOCK for it in range(max_iter):
         #Slip Angles (Rads)
         Vy = Vx * beta
-        alpha_FL = (Vy+r*a)/(Vx-r*(vp.FTrackwidth_mm/1000/2)) - delta #Different delta if ackerman
-        alpha_FR = (Vy+r*a)/(Vx+r*(vp.FTrackwidth_mm/1000/2)) - delta
-        alpha_RL = (Vy-r*b)/(Vx-r*(vp.RTrackwidth_mm/1000/2))
-        alpha_RR = (Vy-r*b)/(Vx+r*(vp.RTrackwidth_mm/1000/2))
+        alpha_FL = np.arctan2(Vy + r*a, Vx - r*tf/2) - delta
+        alpha_FR = np.arctan2(Vy + r*a, Vx + r*tf/2) - delta
+
+        alpha_RL = np.arctan2(Vy - r*b, Vx - r*tr/2)
+        alpha_RR = np.arctan2(Vy - r*b, Vx + r*tr/2)
 
     #Base FZs (N)
         FZ_FL = m*g*vp.WeightDist/2
@@ -89,53 +84,54 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         DF_RL = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
         DF_RR = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
 
-    # Lateral Load Transfer (geometric + elastic split, RCVD/Milliken practice)
+    # Lateral Load Transfer
 
         tf = vp.FTrackwidth_mm / 1000.0
         tr = vp.RTrackwidth_mm / 1000.0
 
-        # Roll stiffness distribution
-        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
-        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
-        RearRollDistribution = vp.RearRollStiffness / Kphi_Total
-
-        # Axle masses (for the geometric transfer term)
-        mf = m * vp.WeightDist
-        mr = m * (1.0 - vp.WeightDist)
-        ms = vp.SprungMass_kg  # sprung mass only carries the elastic term
-
         FrontRC = vp.FrontRollCenter_mm / 1000.0
-        RearRC = vp.RearRollCenter_mm / 1000.0
+        RearRC  = vp.RearRollCenter_mm / 1000.0
+        h_cg    = vp.CG_mm / 1000.0
 
-        # Effective roll axis height at the CG
+        # Total roll stiffness distribution
+        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
+
+        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
+        RearRollDistribution  = vp.RearRollStiffness / Kphi_Total
+
+        # Total lateral force
+        Y = m * Ay
+
+        # Lateral force carried by each axle
+        YF = Y * b / L
+        YR = Y * a / L
+
+        # Roll-axis height underneath CG
         RollAxisHeight = (FrontRC * b + RearRC * a) / L
-        h_cg = vp.CG_mm / 1000.0  # NOTE: using overall CG height as a stand-in for
-                                   # sprung-mass CG height (slightly conservative -
-                                   # sprung CG typically sits a bit higher than the
-                                   # combined CG since it excludes unsprung mass near
-                                   # the ground). Add a dedicated SprungCG_mm param
-                                   # for a more precise elastic-transfer arm.
 
-        # Geometric transfer: axle's own mass reacting laterally through its own
-        # roll center, independent of roll stiffness.
-        FrontGeoMoment = mf * Ay * FrontRC
-        RearGeoMoment  = mr * Ay * RearRC
+        # Geometric load-transfer moments
+        FrontGeoMoment = YF * FrontRC
+        RearGeoMoment  = YR * RearRC
 
-        # Elastic transfer: sprung mass's lateral inertia acting through the
-        # moment arm above the roll axis, split by roll-stiffness distribution.
-        ElasticMoment = ms * Ay * (h_cg - RollAxisHeight)
+        # Elastic roll moment
+        ElasticMoment = Y * (h_cg - RollAxisHeight)
+
         FrontElasticMoment = ElasticMoment * FrontRollDistribution
         RearElasticMoment  = ElasticMoment * RearRollDistribution
 
+        # Total load-transfer moments
         FrontRollMoment = FrontGeoMoment + FrontElasticMoment
         RearRollMoment  = RearGeoMoment + RearElasticMoment
 
-        # Convert roll moments into left/right tire load changes
-        DF_FL += -FrontRollMoment / tf
-        DF_FR +=  FrontRollMoment / tf
+        # Convert moments into tire load transfer
+        FrontLoadTransfer = FrontRollMoment / tf
+        RearLoadTransfer  = RearRollMoment / tr
 
-        DF_RL += -RearRollMoment / tr
-        DF_RR +=  RearRollMoment / tr
+        DF_FL -= FrontLoadTransfer
+        DF_FR += FrontLoadTransfer
+
+        DF_RL -= RearLoadTransfer
+        DF_RR += RearLoadTransfer
 
     #Apply aero + load transfer deltas to the static corner loads, and clip at
     #zero - a real tire model shouldn't be handed negative vertical load.

@@ -1,42 +1,92 @@
 import os
+import numpy as np
 from scipy.interpolate import interp1d as curve
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _TIRE_DIR = os.path.join(_THIS_DIR, "Tires")
 
-Mass_kg = 176.0 #~390lbs
-CG_mm = 324.0 #~12.75in
-Driver_kg = 76.0
-Wheelbase_mm = 1535.0 #~60.5in
-FTrackwidth_mm = 1200.0 #~47in
-RTrackwidth_mm = 1168.0 #~46in
-WeightDist = .5 #front
-YawInertia = 92.0 #kg*m^2
-SprungMass_kg = Mass_kg-42.0 #Assumed 42kg Unsprung
-#SprungRollInertia
-#SprungPitchInertia
+'''
+UNIT CONVERSIONS
+'''
+LBF2N   = 4.4482216
+N2LBF   = 1.0 / LBF2N
+FTLB2NM = 1.3558
+NM2FTLB = 1 / FTLB2NM
+FT2M    = 0.3048
+M2FT    = 1 / FT2M
+IN2M    = 0.0254
+M2IN    = 1 / IN2M
+RAD2DEG = 180.0 / np.pi
+DEG2RAD = np.pi / 180.0
 
-FrontRollStiffness = 1000 #N/m
-RearRollStiffness = 1000 #N/m
+
+'''
+ACTUATION
+'''
+FrontSpringRate = 820 * LBF2N / IN2M #N/m
+RearSpringRate = 640 * LBF2N / IN2M #N/m
+FrontRollStiffness = 1000 #N*m/rad
+RearRollStiffness = 1000 #N*m/rad
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
 #LLTD
+'''
+#BRAKES
+'''
 
-#KPI
-#CasterAngle
 
-#FrontStaticToe
-#RearStaticToe
+'''
+#HARDPOINTS
+'''
+##Mass/Inertia
+Mass_kg = 176.0 # ~390 lbs
+Driver_kg = 76.0
+TotalMass_kg = Mass_kg + Driver_kg
+UnsprungMass_kg = 42.0
+SprungMass_kg = Mass_kg - UnsprungMass_kg # Assumed 42 kg unsprung
+WeightDist = 0.5 # front
+CG_mm = 324.0 # ~12.75 in
+YawInertia = 92.0 # kg*m^2
+# SprungRollInertia
+# SprungPitchInertia
 
-#Front and Rear Camber will be separated later
-CamberBounds = [0, -2, -3] #deg
-Camber_By_Travel_deg = curve([-25.4, 0, 25.4], CamberBounds, kind='quadratic', fill_value='extrapolate') #mm
+##WheelSpacing
+Wheelbase_mm = 1535.0 # ~60.5 in
+FTrackwidth_mm = 1200.0 # ~47 in
+RTrackwidth_mm = 1168.0 # ~46 in
 
-FrontRollCenter_mm = 0
-RearRollCenter_mm = 50.8 #2in
+##Camber
+CamberBounds = [0, -2, -3] # deg
+Camber_By_Travel_deg = curve([-25.4, 0, 25.4],CamberBounds,kind='quadratic',fill_value='extrapolate') # mm
 
+##RollCenter
+FrontRollCenter_mm = 0.0
+RearRollCenter_mm = 50.8 # 2 in
+
+##Steering
 Ackerman = 0.0
+FrontStaticToe_deg = 0.0
+RearStaticToe_deg = 0.0
+
+##Caster
+FrontCaster_deg = 8.23
+RearCaster_deg = 2.81
+
+##KPI
+FrontKPI_deg = 0.0
+RearKPI_deg = 14.9
+
+'''
+#HUBS
+'''
+
+
+'''
+#UPWRITES
+'''
+
+
 
 Gravity = 9.8 #m/s^2
 AirDensity = 1.225 #kg/m^3
