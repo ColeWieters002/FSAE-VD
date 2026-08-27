@@ -62,6 +62,18 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
     def residual(x):
     #Initial Guess
         beta, r, Ay = x   #sideslip (rad), yaw rate (rad/s), lateral accel (m/s^2)
+        tf = vp.FTrackwidth_mm / 1000.0
+        tr = vp.RTrackwidth_mm / 1000.0
+
+        FrontRC = vp.FrontRollCenter_mm / 1000.0
+        RearRC  = vp.RearRollCenter_mm / 1000.0
+        h_cg    = vp.CG_mm / 1000.0
+
+        # Total roll stiffness distribution
+        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
+
+        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
+        RearRollDistribution  = vp.RearRollStiffness / Kphi_Total
 
         #BLOCK for it in range(max_iter):
         #Slip Angles (Rads)
@@ -85,19 +97,6 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         DF_RR = -.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
 
     # Lateral Load Transfer
-
-        tf = vp.FTrackwidth_mm / 1000.0
-        tr = vp.RTrackwidth_mm / 1000.0
-
-        FrontRC = vp.FrontRollCenter_mm / 1000.0
-        RearRC  = vp.RearRollCenter_mm / 1000.0
-        h_cg    = vp.CG_mm / 1000.0
-
-        # Total roll stiffness distribution
-        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
-
-        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
-        RearRollDistribution  = vp.RearRollStiffness / Kphi_Total
 
         # Total lateral force
         Y = m * Ay
