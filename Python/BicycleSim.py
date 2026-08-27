@@ -1,7 +1,7 @@
 import numpy as np
 import TireFunctions as MF
 import VehicleParameters as vp
-from VehicleParameters import RAD2DEG, L
+from VehicleParameters import LBF2N,N2LBF,FTLB2NM,NM2FTLB,FT2M,M2FT,IN2M,M2IN,RAD2DEG,DEG2RAD
 from scipy.optimize import least_squares as ls
 
 
