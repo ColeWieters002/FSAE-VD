@@ -27,6 +27,9 @@ FrontSpringRate = 820 * LBF2N / IN2M #N/m
 RearSpringRate = 640 * LBF2N / IN2M #N/m
 FrontRollStiffness = 1000 #N*m/rad
 RearRollStiffness = 1000 #N*m/rad
+
+#LOOK AT PHONE FOR NUMEBRS
+
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
