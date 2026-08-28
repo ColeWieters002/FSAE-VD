@@ -30,7 +30,9 @@ RearSpringRate = 640 * LBF2N / IN2M #N/m
 #FMRCurve = curve(fmrWheelposistions, fmrspringposistions, kind='quadratic')
 FrontRollStiffness = 1000 #N*m/rad
 RearRollStiffness = 1000 #N*m/rad
-#FRollStiffnessDistribution = FrontRollStiffness / (FrontRollStiffness + RearRollStiffness) 
+
+#LOOK AT PHONE FOR NUMEBRS
+
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
