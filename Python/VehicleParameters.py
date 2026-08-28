@@ -25,8 +25,12 @@ ACTUATION
 '''
 FrontSpringRate = 820 * LBF2N / IN2M #N/m
 RearSpringRate = 640 * LBF2N / IN2M #N/m
+#fmrWheelposistions = []
+#fmrspringposistions = []
+#FMRCurve = curve(fmrWheelposistions, fmrspringposistions, kind='quadratic')
 FrontRollStiffness = 1000 #N*m/rad
 RearRollStiffness = 1000 #N*m/rad
+#FRollStiffnessDistribution = FrontRollStiffness / (FrontRollStiffness + RearRollStiffness) 
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness

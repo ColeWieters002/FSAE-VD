@@ -77,7 +77,7 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
 
         #BLOCK for it in range(max_iter):
         #Slip Angles (Rads)
-        Vy = Vx * beta
+        Vy = Vx * np.tan(beta)
         alpha_FL = np.arctan2(Vy + r*a, Vx - r*tf/2) - delta
         alpha_FR = np.arctan2(Vy + r*a, Vx + r*tf/2) - delta
 
