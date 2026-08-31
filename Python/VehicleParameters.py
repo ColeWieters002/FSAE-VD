@@ -64,7 +64,18 @@ RTrackwidth_mm = 1168.0 # ~46 in
 
 ##Camber
 CamberBounds = [0, -2, -3] # deg
-Camber_By_Travel_deg = curve([-25.4, 0, 25.4],CamberBounds,kind='quadratic',fill_value='extrapolate') # mm
+
+_CamberCurve = curve([-25.4, 0, 25.4],CamberBounds,kind='quadratic',fill_value='extrapolate')
+
+def Camber_By_Travel_deg(travel_mm, side):
+    camber = float(_CamberCurve(travel_mm))
+
+    if side.lower() == "left":
+        return camber
+    elif side.lower() == "right":
+        return -camber
+    else:
+        raise ValueError("side must be 'left' or 'right'")
 
 ##RollCenter
 FrontRollCenter_mm = 0.0
