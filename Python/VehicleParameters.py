@@ -33,6 +33,8 @@ RearRollStiffness = 1000 #N*m/rad
 
 #LOOK AT PHONE FOR NUMEBRS
 
+FrontRollStiffness = 30000 #N/m
+RearRollStiffness = 10000 #N/m
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness

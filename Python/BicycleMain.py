@@ -21,7 +21,7 @@ def main():
     beta, r, Ay = result
     end = time.perf_counter()
     Runtime = end-start
-    print(f"Sideslip Angle = {beta * 57.296:.3f}, Yaw Rate = {r * 57.296:.3f}, Lateral Gs = {Ay / 9.8:.3f}")
+    print(f"Sideslip Angle = {beta * 57.296:.3f} (deg), Yaw Rate = {r * 57.296:.3f} (deg/s), Lateral Gs = {Ay / 9.8:.3f}")
     radius = (Vx**2)/Ay #m
     SkidpadTime = (2*np.pi)/r #sec
     print(f"radius= {radius:.3f}m")
