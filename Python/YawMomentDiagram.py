@@ -6,9 +6,9 @@ from YMDSim import Tire,solve
 
 def main():
     #Inputs
-    Vx=11.75
-    beta_values=np.arange(-8,9,1)
-    delta_values=np.arange(-8,9,1)
+    Vx = 11.75
+    beta_values=np.arange(-8,9,0.5)
+    delta_values=np.arange(-8,9,0.5)
 
     tire=Tire(vp.TireModel,vp.TirePressure_bar)
 
