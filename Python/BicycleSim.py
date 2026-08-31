@@ -1,16 +1,10 @@
 import numpy as np
 import TireFunctions as MF
 import VehicleParameters as vp
+from VehicleParameters import LBF2N,N2LBF,FTLB2NM,NM2FTLB,FT2M,M2FT,IN2M,M2IN,RAD2DEG,DEG2RAD
 from scipy.optimize import least_squares as ls
 import matplotlib.pyplot as plt
 
-# Unit Conversions
-LBF2N   = 4.4482216
-N2LBF   = 1.0 / LBF2N
-FTLB2NM = 1.3558
-FT2M    = 0.3048
-RAD2DEG = 180.0 / np.pi
-DEG2RAD = np.pi / 180.0
 
 class Tire:
     def __init__(self, tir_path, pressure_bar=None):
@@ -78,14 +72,27 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
     def residual(x):
     #Initial Guess
         beta, r, Ay = x   #sideslip (rad), yaw rate (rad/s), lateral accel (m/s^2)
+        tf = vp.FTrackwidth_mm / 1000.0
+        tr = vp.RTrackwidth_mm / 1000.0
+
+        FrontRC = vp.FrontRollCenter_mm / 1000.0
+        RearRC  = vp.RearRollCenter_mm / 1000.0
+        h_cg    = vp.CG_mm / 1000.0
+
+        # Total roll stiffness distribution
+        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
+
+        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
+        RearRollDistribution  = vp.RearRollStiffness / Kphi_Total
 
         #BLOCK for it in range(max_iter):
         #Slip Angles (Rads)
-        Vy = Vx * beta
-        alpha_FL = (Vy+r*a)/(Vx-r*(vp.FTrackwidth_mm/1000/2)) - delta #Different delta if ackerman
-        alpha_FR = (Vy+r*a)/(Vx+r*(vp.FTrackwidth_mm/1000/2)) - delta
-        alpha_RL = (Vy-r*b)/(Vx-r*(vp.RTrackwidth_mm/1000/2))
-        alpha_RR = (Vy-r*b)/(Vx+r*(vp.RTrackwidth_mm/1000/2))
+        Vy = Vx * np.tan(beta)
+        alpha_FL = np.arctan2(Vy + r*a, Vx - r*tf/2) - delta
+        alpha_FR = np.arctan2(Vy + r*a, Vx + r*tf/2) - delta
+
+        alpha_RL = np.arctan2(Vy - r*b, Vx - r*tr/2)
+        alpha_RR = np.arctan2(Vy - r*b, Vx + r*tr/2)
 
     #Base FZs (N)
         FZ_FL = m*g*vp.WeightDist/2
@@ -101,35 +108,46 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
 
     # Lateral Load Transfer
 
-        # Roll stiffness distribution
-        Kphi_Total = vp.FrontRollStiffness + vp.RearRollStiffness
+        # Total lateral force
+        Y = m * Ay
 
-        FrontRollDistribution = vp.FrontRollStiffness / Kphi_Total
-        RearRollDistribution = vp.RearRollStiffness / Kphi_Total
+        # Lateral force carried by each axle
+        YF = Y * b / L
+        YR = Y * a / L
 
-        # Lateral force at the CG
-        LateralForce = m * Ay
+        # Roll-axis height underneath CG
+        RollAxisHeight = (FrontRC * b + RearRC * a) / L
 
-        # Roll moment about the effective roll axis
-        # Use CG height and roll-center height
-        FrontRC = vp.FrontRollCenter_mm / 1000.0
-        RearRC = vp.RearRollCenter_mm / 1000.0
+        # Geometric load-transfer moments
+        FrontGeoMoment = YF * FrontRC
+        RearGeoMoment  = YR * RearRC
 
-        # Effective roll center height at the CG
-        RollCenter = (FrontRC * b + RearRC * a) / L
+        # Elastic roll moment
+        ElasticMoment = Y * (h_cg - RollAxisHeight)
 
-        RollMoment = LateralForce * (vp.CG_mm / 1000.0 - RollCenter)
+        FrontElasticMoment = ElasticMoment * FrontRollDistribution
+        RearElasticMoment  = ElasticMoment * RearRollDistribution
 
-        # Split roll moment between front and rear
-        FrontRollMoment = RollMoment * FrontRollDistribution
-        RearRollMoment = RollMoment * RearRollDistribution
+        # Total load-transfer moments
+        FrontRollMoment = FrontGeoMoment + FrontElasticMoment
+        RearRollMoment  = RearGeoMoment + RearElasticMoment
 
-        # Convert roll moments into left/right tire load changes
-        DF_FL += -FrontRollMoment / (vp.FTrackwidth_mm / 1000.0)
-        DF_FR +=  FrontRollMoment / (vp.FTrackwidth_mm / 1000.0)
+        # Convert moments into tire load transfer
+        FrontLoadTransfer = FrontRollMoment / tf
+        RearLoadTransfer  = RearRollMoment / tr
 
-        DF_RL += -RearRollMoment / (vp.RTrackwidth_mm / 1000.0)
-        DF_RR +=  RearRollMoment / (vp.RTrackwidth_mm / 1000.0)
+        DF_FL -= FrontLoadTransfer
+        DF_FR += FrontLoadTransfer
+
+        DF_RL -= RearLoadTransfer
+        DF_RR += RearLoadTransfer
+
+    #Apply aero + load transfer deltas to the static corner loads, and clip at
+    #zero - a real tire model shouldn't be handed negative vertical load.
+        FZ_FL = max(FZ_FL + DF_FL, 0.0)
+        FZ_FR = max(FZ_FR + DF_FR, 0.0)
+        FZ_RL = max(FZ_RL + DF_RL, 0.0)
+        FZ_RR = max(FZ_RR + DF_RR, 0.0)
 
     #Find FY
         gamma_FL = vp.Camber_By_Travel_deg(0)

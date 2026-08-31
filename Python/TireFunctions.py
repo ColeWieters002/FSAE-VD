@@ -83,6 +83,7 @@ def MZ(X, q, p, fz0, r0):
     CT = QCZ1
     DT = (FZ * (QDZ1 + QDZ2 * DFZ) * (1.0 + QDZ3 * GAMZ + QDZ4 * GAMZ ** 2) * (r0 / fz0) * L['LTR'])
     ET = ((QEZ1 + QEZ2 * DFZ + QEZ3 * DFZ ** 2) * (1.0 + (QEZ4 + QEZ5 * GAMZ) * (2.0 / np.pi) * np.arctan(BT * CT * ALPHAT)))
+    ET = np.minimum(ET, 1.0)  # Pacejka MF5.2 limiter: Et <= 1
 
     BR = QBZ9 * L['LKY'] / L['LMUY'] + QBZ10 * BY * CY
     DR = (FZ * ((QDZ6 + QDZ7 * DFZ) * L['LRES'] + (QDZ8 + QDZ9 * DFZ) * GAMZ) * r0 * L['LMUY'])
@@ -106,7 +107,7 @@ def FX(X, p, fz0):
 
     SHX = (PHX1 + PHX2 * DFZ) * L['LHX']
     KAPPAX = KAPPA + SHX
-    SVX = FZ * (PVX1 + PVX2 * DFZ) * L['LVX']
+    SVX = FZ * (PVX1 + PVX2 * DFZ) * L['LVX'] * L['LMUX']
     CX = PCX1 * L['LCX']
     MUX = (PDX1 + PDX2 * DFZ) * (1.0 - PDX3 * GAMX ** 2) * L['LMUX']
     DX = MUX * FZ
@@ -115,4 +116,3 @@ def FX(X, p, fz0):
     EX = (PEX1 + PEX2 * DFZ + PEX3 * DFZ ** 2) * (1.0 - PEX4 * np.sign(KAPPAX)) * L['LEX']
 
     return DX * np.sin(CX * np.arctan(BX * KAPPAX - EX * (BX * KAPPAX - np.arctan(BX * KAPPAX)))) + SVX
-
