@@ -3,8 +3,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-import VehicleParameters as vp
-from BicycleSim import Tire, solve, DEG2RAD
+from Python.Parameters import VehicleParameters as vp
+from Python.Skidpad.BicycleSim import Tire, solve, DEG2RAD
 import time
 
 

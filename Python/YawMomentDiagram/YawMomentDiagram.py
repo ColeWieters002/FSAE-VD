@@ -1,6 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d as curve
+from Python.YawMomentDiagram.YMDSim import Tire, solve
+from Python.Parameters import VehicleParameters as vp
+from Parameters.VehicleParameters import LBF2N,N2LBF,FTLB2NM,NM2FTLB,FT2M,M2FT,IN2M,M2IN,RAD2DEG,DEG2RAD
+
+#Inputs
+Vx = 11.75 #m/s
+beta = 0.0 * DEG2RAD
+delta = 0.0 * DEG2RAD
+
+r, Ay, Mz = solve(Vx, beta, delta, vp, tire)
+
+print("r =", r)
+print("Ay =", Ay)
+print("Mz =", Mz)
+
+
 
 # Sweep steering angle delta
 
