@@ -6,10 +6,11 @@ from YMDSim import Tire,solve
 
 def main():
     #Inputs
-    Vx = 11.75
-    beta_values=np.arange(-8,9,0.5)
-    delta_values=np.arange(-8,9,0.5)
+    Vx=20
+    beta_values=np.arange(-13,13,1)
+    delta_values=np.arange(-13,13,1)
 
+    open("YMD_Debug.txt", "w").close()
     tire=Tire(vp.TireModel,vp.TirePressure_bar)
 
     Ay_grid=np.zeros((len(delta_values),len(beta_values)))
@@ -21,7 +22,7 @@ def main():
             beta=beta_deg*DEG2RAD
             delta=delta_deg*DEG2RAD
 
-            Ay,Mz=solve(Vx,beta,delta,vp,tire)
+            Ay,Mz=solve(Vx,beta,delta,vp,tire,True)
 
             Ay_grid[i,j]=Ay/vp.Gravity
             Mz_grid[i,j]=Mz

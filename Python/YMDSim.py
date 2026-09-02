@@ -85,10 +85,11 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         FZ_RR=m*g*(1-vp.WeightDist)/2
 
         #Downforce
-        DF_FL=-.5*vp.AirDensity*Vx**2*vp.CL*vp.A*vp.AeroBalance*.5
-        DF_FR=-.5*vp.AirDensity*Vx**2*vp.CL*vp.A*vp.AeroBalance*.5
-        DF_RL=-.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
-        DF_RR=-.5*vp.AirDensity*Vx**2*vp.CL*vp.A*(1-vp.AeroBalance)*.5
+        DF = .5*vp.AirDensity*Vx**2*vp.CL*vp.A
+        DF_FL=-DF*vp.AeroBalance*.5
+        DF_FR=-DF*vp.AeroBalance*.5
+        DF_RL=-DF*(1-vp.AeroBalance)*.5
+        DF_RR=-DF*(1-vp.AeroBalance)*.5
 
         #Lateral Load Transfer
         Y=m*Ay
@@ -112,10 +113,33 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         DF_RR+=RearLoadTransfer
 
         #Apply Aero and Load Transfer
-        FZ_FL=max(FZ_FL+DF_FL,0.0)
-        FZ_FR=max(FZ_FR+DF_FR,0.0)
-        FZ_RL=max(FZ_RL+DF_RL,0.0)
-        FZ_RR=max(FZ_RR+DF_RR,0.0)
+        FZ_FL_raw = FZ_FL + DF_FL
+        FZ_FR_raw = FZ_FR + DF_FR
+        FZ_RL_raw = FZ_RL + DF_RL
+        FZ_RR_raw = FZ_RR + DF_RR
+
+        #Front axle: if one side goes negative, give its deficit to the other side
+        FZ_FL, FZ_FR = FZ_FL_raw, FZ_FR_raw
+        if FZ_FL < 0:
+            FZ_FR += FZ_FL   # FZ_FL is negative, so this subtracts the deficit
+            FZ_FL = 0.0
+        elif FZ_FR < 0:
+            FZ_FL += FZ_FR
+            FZ_FR = 0.0
+
+        #Rear axle: same idea
+        FZ_RL, FZ_RR = FZ_RL_raw, FZ_RR_raw
+        if FZ_RL < 0:
+            FZ_RR += FZ_RL
+            FZ_RL = 0.0
+        elif FZ_RR < 0:
+            FZ_RL += FZ_RR
+            FZ_RR = 0.0
+
+        FZ_FL=max(FZ_FL,0.0)
+        FZ_FR=max(FZ_FR,0.0)
+        FZ_RL=max(FZ_RL,0.0)
+        FZ_RR=max(FZ_RR,0.0)
 
         #Camber
         gamma_FL=vp.Camber_By_Travel_deg(0,"left")
