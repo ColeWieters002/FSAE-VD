@@ -78,8 +78,8 @@ def Camber_By_Travel_deg(travel_mm, side):
         raise ValueError("side must be 'left' or 'right'")
 
 ##RollCenter
-FrontRollCenter_mm = 0.0
-RearRollCenter_mm = 50.8 # 2 in
+FrontRollCenter_mm = -0.02 * IN2M
+RearRollCenter_mm = 2.474 * IN2M 
 
 ##Steering
 Ackerman = 0.0
