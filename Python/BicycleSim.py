@@ -140,10 +140,10 @@ def solve(Vx, delta, vp, tire, max_iter=100, relax=0.4, tol_beta=1e-4, tol_r=1e-
         FZ_RR = max(FZ_RR + DF_RR, 0.0)
 
     #Find FY
-        gamma_FL = vp.Camber_By_Travel_deg(0)
-        gamma_FR = vp.Camber_By_Travel_deg(0)
-        gamma_RL = vp.Camber_By_Travel_deg(0)
-        gamma_RR = vp.Camber_By_Travel_deg(0)
+        gamma_FL = vp.Camber_By_Travel_deg(0,"left")
+        gamma_FR = vp.Camber_By_Travel_deg(0,"right")
+        gamma_RL = vp.Camber_By_Travel_deg(0,"left")
+        gamma_RR = vp.Camber_By_Travel_deg(0,"right")
 
         FY_FL = tire.FY(alpha_FL*RAD2DEG, FZ_FL*N2LBF, gamma_FL)*LBF2N
         FY_FR = tire.FY(alpha_FR*RAD2DEG, FZ_FR*N2LBF, gamma_FR)*LBF2N

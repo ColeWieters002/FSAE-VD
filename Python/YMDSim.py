@@ -120,8 +120,8 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         #Camber
         gamma_FL=vp.Camber_By_Travel_deg(0,"left")
         gamma_FR=vp.Camber_By_Travel_deg(0,"right")
-        gamma_RL=vp.Camber_By_Travel_deg(0,"left")
-        gamma_RR=vp.Camber_By_Travel_deg(0,"right")
+        gamma_RL=vp.Camber_By_Travel_deg(-1,"left")
+        gamma_RR=vp.Camber_By_Travel_deg(-1,"right")
 
         #Find Tire Lateral Forces
         FY_FL=tire.FY(alpha_FL*RAD2DEG,FZ_FL*N2LBF,gamma_FL)*LBF2N

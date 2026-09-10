@@ -5,6 +5,16 @@ from scipy.interpolate import interp1d as curve
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _TIRE_DIR = os.path.join(_THIS_DIR, "Tires")
 
+'''Things to add'''
+'''
+HEAVE: 500 lb/in front / 375 lb/in rear 
+ROLL: 18875 ft-lb/rad front / 22290 ft-lb/rad rear
+HEAVE FREQ: 3.291 Hz
+ROLL FREQ: 3.806 Hz
+PITCH FREQ: 5.216 Hz
+'''
+
+
 '''
 UNIT CONVERSIONS
 '''
@@ -51,8 +61,8 @@ Driver_kg = 76.0
 TotalMass_kg = Mass_kg + Driver_kg
 UnsprungMass_kg = 42.0
 SprungMass_kg = Mass_kg - UnsprungMass_kg # Assumed 42 kg unsprung
-WeightDist = 0.5 # front
-CG_mm = 324.0 # ~12.75 in
+WeightDist = 0.45 # front
+CG_mm = 11.8 * IN2M * 1000 # ~12.75 in
 YawInertia = 92.0 # kg*m^2
 # SprungRollInertia
 # SprungPitchInertia
@@ -79,7 +89,7 @@ def Camber_By_Travel_deg(travel_mm, side):
 
 ##RollCenter
 FrontRollCenter_mm = 0.0
-RearRollCenter_mm = 50.8 # 2 in
+RearRollCenter_mm = 2 * IN2M * 1000# 2 in
 
 ##Steering
 Ackerman = 0.0
