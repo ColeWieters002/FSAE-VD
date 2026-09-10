@@ -4,7 +4,7 @@ L = dict(
     LFZO=1.0,
     LCZ=1.0,
     LCX=1.0, LMUX=1.0, LEX=1.0, LKX=1.0, LHX=1.0, LVX=1.0, LGAX=1.0,
-    LCY=1.0, LMUY=1.0, LEY=1.0, LKY=1.0, LHY=1.0, LVY=1.0, LGAY=1.0,
+    LCY=1.0, LMUY=0.85, LEY=1.0, LKY=1.0, LHY=1.0, LVY=1.0, LGAY=1.0,
     LGAZ=1.0, LTR=1.0, LRES=1.0, LVMX=1.0, LMY=1.0,
     LXAL=1.0, LYKA=1.0, LVYKA=1.0, LS=1.0
 )

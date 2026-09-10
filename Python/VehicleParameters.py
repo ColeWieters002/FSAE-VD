@@ -28,13 +28,11 @@ RearSpringRate = 640 * LBF2N / IN2M #N/m
 #fmrWheelposistions = []
 #fmrspringposistions = []
 #FMRCurve = curve(fmrWheelposistions, fmrspringposistions, kind='quadratic')
-FrontRollStiffness = 1000 #N*m/rad
-RearRollStiffness = 1000 #N*m/rad
 
 #LOOK AT PHONE FOR NUMEBRS
 
-FrontRollStiffness = 10000 #N/m
-RearRollStiffness = 10000 #N/m
+FrontRollStiffness = 20000 #N/m
+RearRollStiffness = 20000 #N/m
 #FrontHeaveStiffness
 #RearHeaveStiffness
 #ChassisStiffness
@@ -53,16 +51,16 @@ Driver_kg = 76.0
 TotalMass_kg = Mass_kg + Driver_kg
 UnsprungMass_kg = 42.0
 SprungMass_kg = Mass_kg - UnsprungMass_kg # Assumed 42 kg unsprung
-WeightDist = 0.5 # front
-CG_mm = 324.0 # ~12.75 in
+WeightDist = 0.48 # front
+CG_mm = 11.25*IN2M*1000 # ~12.75 in
 YawInertia = 92.0 # kg*m^2
 # SprungRollInertia
 # SprungPitchInertia
 
 ##WheelSpacing
-Wheelbase_mm = 1535.0 # ~60.5 in
-FTrackwidth_mm = 1200.0 # ~47 in
-RTrackwidth_mm = 1168.0 # ~46 in
+Wheelbase_mm = 60.5*IN2M*1000 # ~60.5 in
+FTrackwidth_mm = 47*IN2M*1000 # ~47 in
+RTrackwidth_mm = 46*IN2M*1000 # ~46 in
 
 ##Camber
 CamberBounds = [0, -2, -3] # deg
@@ -80,8 +78,8 @@ def Camber_By_Travel_deg(travel_mm, side):
         raise ValueError("side must be 'left' or 'right'")
 
 ##RollCenter
-FrontRollCenter_mm = -0.02 * IN2M
-RearRollCenter_mm = 2.474 * IN2M 
+FrontRollCenter_mm = -0.02 * IN2M * 1000
+RearRollCenter_mm = 2.474 * IN2M * 1000
 
 ##Steering
 Ackerman = 0.0

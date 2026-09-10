@@ -6,15 +6,19 @@ from YMDSim import Tire,solve
 
 def main():
     #Inputs
-    Vx=20
-    beta_values=np.arange(-13,13,1)
-    delta_values=np.arange(-13,13,1)
+    Vx=11.75
+    betasweeprange = (-12,13)
+    deltasweeprange = betasweeprange
+
+    beta_values=np.arange(betasweeprange[0],betasweeprange[1],1)
+    delta_values=np.arange(deltasweeprange[0],deltasweeprange[1],1)
 
     open("YMD_Debug.txt", "w").close()
     tire=Tire(vp.TireModel,vp.TirePressure_bar)
 
     Ay_grid=np.zeros((len(delta_values),len(beta_values)))
     Mz_grid=np.zeros((len(delta_values),len(beta_values)))
+    phi_grid=np.zeros((len(delta_values),len(beta_values)))
 
     #Run YMD Sweep
     for i,delta_deg in enumerate(delta_values):
@@ -22,13 +26,13 @@ def main():
             beta=beta_deg*DEG2RAD
             delta=delta_deg*DEG2RAD
 
-            Ay,Mz=solve(Vx,beta,delta,vp,tire,True)
+            Ay,Mz,phi,data=solve(Vx,beta,delta,vp,tire,True)
 
             Ay_grid[i,j]=Ay/vp.Gravity
             Mz_grid[i,j]=Mz
-
+            phi_grid[i,j]=phi*vp.RAD2DEG
     #Plot YMD
-    plt.figure(figsize=(11,8))
+    plt.figure(figsize=(12,8))
 
     #Constant Steering Angle Lines
     for i,delta_deg in enumerate(delta_values):
@@ -54,7 +58,7 @@ def main():
 
             if Mz1==0:
                 trim_Ay.append(Ay_grid[i,j])
-                trim_delta.append(delta_values[i])
+                trim_delta.append(delta_values[i]*vp.RAD2DEG)
 
             elif Mz1*Mz2<0:
                 frac=-Mz1/(Mz2-Mz1)
@@ -63,7 +67,7 @@ def main():
                 delta_trim=delta_values[i]+frac*(delta_values[i+1]-delta_values[i])
 
                 trim_Ay.append(Ay_trim)
-                trim_delta.append(delta_trim)
+                trim_delta.append(delta_trim*vp.RAD2DEG)
 
     #Plot Trim Points
     #if len(trim_Ay)>0:
@@ -79,6 +83,8 @@ def main():
 
     plt.legend(title="Constant Steering Angle",bbox_to_anchor=(1.02,1),loc="upper left")
     plt.tight_layout()
+
+
     plt.show()
 
     #Center Derivatives
@@ -88,12 +94,23 @@ def main():
     dMz_dbeta=(Mz_grid[i0,j0+1]-Mz_grid[i0,j0-1])/(2*DEG2RAD)
     dMz_ddelta=(Mz_grid[i0+1,j0]-Mz_grid[i0-1,j0])/(2*DEG2RAD)
 
-    print()
+    max_index = np.unravel_index(np.argmax(Ay_grid),Ay_grid.shape)
+    Mz_at_Ay_max = Mz_grid[max_index]
+
+    print(f"Vx = {Vx:.2f}")
     print("===================================")
     print("YMD CENTER DERIVATIVES")
     print("===================================")
-    print(f"dMz/dbeta = {dMz_dbeta:.2f} N*m/rad")
-    print(f"dMz/ddelta = {dMz_ddelta:.2f} N*m/rad")
+    print(f"dMz/dbeta = {dMz_dbeta*vp.NM2FTLB:.2f} ft-lbs/rad")
+    print(f"dMz/ddelta = {dMz_ddelta*vp.NM2FTLB:.2f} ft-lbs/rad")
+    print(f"control to stability ratio = {(dMz_ddelta*vp.NM2FTLB)/(dMz_dbeta*vp.NM2FTLB):.2f}")
+    print("===================================")
+    print("YMD MZ AND AY LIMITS")
+    print("===================================")
+    print(f"MZ MAX = {np.max(Mz_grid*vp.NM2FTLB):.2f} ft-lbs")
+    print(f"AY MAX = {np.max(Ay_grid):.2f} g's")
+    print(f"MZ AT AY MAX = {Mz_at_Ay_max:.2f} ft-lbs")
+    
 
     #Trim Steering Plot
     if len(trim_Ay)>0:
