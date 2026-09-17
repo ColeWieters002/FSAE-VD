@@ -1,14 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import VehicleParameters as vp
-from VehicleParameters import DEG2RAD
+from VehicleParameters import DEG2RAD, RAD2DEG
 from YMDSim import Tire,solve
 
 def main():
     #Inputs
     Vx=11.75
     betasweeprange = (-12,13)
-    deltasweeprange = betasweeprange
+    deltasweeprange = (-12,13)
 
     beta_values=np.arange(betasweeprange[0],betasweeprange[1],1)
     delta_values=np.arange(deltasweeprange[0],deltasweeprange[1],1)
@@ -27,6 +27,20 @@ def main():
             delta=delta_deg*DEG2RAD
 
             Ay,Mz,phi,data=solve(Vx,beta,delta,vp,tire,True)
+            if abs(beta * RAD2DEG) >= 10.0:
+                print(
+                    f"Beta={beta*RAD2DEG:.1f} | "
+                    f"Delta={delta*RAD2DEG:.1f} | "
+                    f"Ay={data['Ay_g']:.3f}g | "
+                    f"FY=[{data['FY_FL_N']:.0f}, "
+                    f"{data['FY_FR_N']:.0f}, "
+                    f"{data['FY_RL_N']:.0f}, "
+                    f"{data['FY_RR_N']:.0f}] | "
+                    f"FZ=[{data['FZ_FL_N']:.0f}, "
+                    f"{data['FZ_FR_N']:.0f}, "
+                    f"{data['FZ_RL_N']:.0f}, "
+                    f"{data['FZ_RR_N']:.0f}]"
+                )
 
             Ay_grid[i,j]=Ay/vp.Gravity
             Mz_grid[i,j]=Mz

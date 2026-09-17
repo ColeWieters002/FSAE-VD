@@ -46,11 +46,11 @@ RearHeaveStiffness  = 375 * LBF2N / IN2M  # N/m
 #HARDPOINTS
 '''
 ##Mass/Inertia
-Mass_kg = 176.0 # ~390 lbs
+Vehicle_kg = 176.0 # ~390 lbs
 Driver_kg = 76.0
-TotalMass_kg = Mass_kg + Driver_kg
+TotalMass_kg = Vehicle_kg + Driver_kg
 UnsprungMass_kg = 42.0
-SprungMass_kg = Mass_kg - UnsprungMass_kg # Assumed 42 kg unsprung
+SprungMass_kg = TotalMass_kg - UnsprungMass_kg # Assumed 42 kg unsprung
 WeightDist = 0.48 # front
 CG_mm = 11.25*IN2M*1000 # ~12.75 in
 YawInertia = 92.0 # kg*m^2

@@ -53,8 +53,8 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
     L=vp.Wheelbase_mm/1000.0
     a=L*(1.0-vp.WeightDist)
     b=L*vp.WeightDist
-    m=vp.Mass_kg+vp.Driver_kg
-    ms=vp.UnsprungMass_kg
+    m=vp.TotalMass_kg
+    ms=vp.SprungMass_kg
     g=vp.Gravity
     tf=vp.FTrackwidth_mm/1000.0
     tr=vp.RTrackwidth_mm/1000.0
@@ -94,9 +94,9 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         DF_RR=-DF*(1-vp.AeroBalance)*.5
 
         #Lateral Load Transfer
-        Y=m*Ay
-        YF=Y*b/L
-        YR=Y*a/L
+        Ys=ms*Ay
+        YF=Ys*b/L
+        YR=Ys*a/L
 
         
         FrontGeoMoment=YF*FrontRC
@@ -247,6 +247,8 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         "TireMZ_RR_Nm": TireMZ_RR,
     }
 
+        
+
         if debug:
             with open("YMD_Debug.txt","a") as f:
                 f.write("\n====================================\n")
@@ -298,7 +300,7 @@ def solve(Vx,beta,delta,vp,tire,debug=False):
         Ay,phi,=x
         FY_Total,Mz_Vehicle,_=calculate_state(Ay,phi)
         R1=Ay-FY_Total/m
-        R2 = ((vp.FrontRollStiffness + vp.RearRollStiffness) * phi- ms * Ay * (h_cg - RollAxisHeight))
+        R2 = ((vp.FrontRollStiffness + vp.RearRollStiffness) * phi - ms * Ay * (h_cg - RollAxisHeight))
         return [R1,R2]
 
     #Solve for Lateral Acceleration
