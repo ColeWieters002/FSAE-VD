@@ -14,13 +14,14 @@ def main():
     print(f"Loaded tire: {tire.path}")
 
     #run that john
-    Vx    = 11.75 #m/s ~25mph
-    delta = 10 * DEG2RAD #rad
+    Vx    = 20 #m/s ~25mph
+    delta = 15.7 * DEG2RAD #rad
 
     result = solve(Vx, delta, vp, tire)
-    beta, r, Ay = result
+    beta, r, Ay, data = result
     end = time.perf_counter()
     Runtime = end-start
+    print(f"Inputs: Vx = {Vx * vp.MPS2MPH:.3f}, delta = {delta / DEG2RAD}")
     print(f"Sideslip Angle = {beta * 57.296:.3f} (deg), Yaw Rate = {r * 57.296:.3f} (deg/s), Lateral Gs = {Ay / 9.8:.3f}")
     radius = (Vx**2)/Ay #m
     SkidpadTime = (2*np.pi)/r #sec

@@ -25,25 +25,9 @@ def main():
         for j,beta_deg in enumerate(beta_values):
             beta=beta_deg*DEG2RAD
             delta=delta_deg*DEG2RAD
-
             Ay,Mz,phi,data=solve(Vx,beta,delta,vp,tire,True)
-            if abs(beta * RAD2DEG) >= 10.0:
-                print(
-                    f"Beta={beta*RAD2DEG:.1f} | "
-                    f"Delta={delta*RAD2DEG:.1f} | "
-                    f"Ay={data['Ay_g']:.3f}g | "
-                    f"FY=[{data['FY_FL_N']:.0f}, "
-                    f"{data['FY_FR_N']:.0f}, "
-                    f"{data['FY_RL_N']:.0f}, "
-                    f"{data['FY_RR_N']:.0f}] | "
-                    f"FZ=[{data['FZ_FL_N']:.0f}, "
-                    f"{data['FZ_FR_N']:.0f}, "
-                    f"{data['FZ_RL_N']:.0f}, "
-                    f"{data['FZ_RR_N']:.0f}]"
-                )
-
             Ay_grid[i,j]=Ay/vp.Gravity
-            Mz_grid[i,j]=Mz
+            Mz_grid[i,j]=Mz*vp.NM2FTLB
             phi_grid[i,j]=phi*vp.RAD2DEG
     #Plot YMD
     plt.figure(figsize=(12,8))
@@ -91,8 +75,8 @@ def main():
     plt.axvline(0,linewidth=1)
 
     plt.xlabel("Lateral Acceleration (g)")
-    plt.ylabel("Yaw Moment (N·m)")
-    plt.title(f"Yaw Moment Diagram - Vx={Vx:.2f} m/s")
+    plt.ylabel("Yaw Moment (Ft*Lbs)")
+    plt.title(f"Yaw Moment Diagram - Vx={Vx*vp.MPS2MPH:.2f} MPH")
     plt.grid(True)
 
     plt.legend(title="Constant Steering Angle",bbox_to_anchor=(1.02,1),loc="upper left")
@@ -105,25 +89,26 @@ def main():
     i0=np.where(delta_values==0)[0][0]
     j0=np.where(beta_values==0)[0][0]
 
-    dMz_dbeta=(Mz_grid[i0,j0+1]-Mz_grid[i0,j0-1])/(2*DEG2RAD)
+    dMz_dbeta=-(Mz_grid[i0,j0+1]-Mz_grid[i0,j0-1])/(2*DEG2RAD)
     dMz_ddelta=(Mz_grid[i0+1,j0]-Mz_grid[i0-1,j0])/(2*DEG2RAD)
 
     max_index = np.unravel_index(np.argmax(Ay_grid),Ay_grid.shape)
     Mz_at_Ay_max = Mz_grid[max_index]
 
-    print(f"Vx = {Vx:.2f}")
+    print(f"Vx = {Vx*vp.MPS2MPH:.2f} MPH")
     print("===================================")
     print("YMD CENTER DERIVATIVES")
     print("===================================")
-    print(f"dMz/dbeta = {dMz_dbeta*vp.NM2FTLB:.2f} ft-lbs/rad")
-    print(f"dMz/ddelta = {dMz_ddelta*vp.NM2FTLB:.2f} ft-lbs/rad")
-    print(f"control to stability ratio = {(dMz_ddelta*vp.NM2FTLB)/(dMz_dbeta*vp.NM2FTLB):.2f}")
+    print(f"dMz/dbeta = {dMz_dbeta:.2f} ft-lbs/rad")
+    print(f"dMz/ddelta = {dMz_ddelta:.2f} ft-lbs/rad")
+    print(f"control to stability ratio = {(dMz_ddelta)/(dMz_dbeta):.2f}")
     print("===================================")
     print("YMD MZ AND AY LIMITS")
     print("===================================")
-    print(f"MZ MAX = {np.max(Mz_grid*vp.NM2FTLB):.2f} ft-lbs")
+    print(f"MZ MAX = {np.max(Mz_grid):.2f} ft-lbs")
     print(f"AY MAX = {np.max(Ay_grid):.2f} g's")
     print(f"MZ AT AY MAX = {Mz_at_Ay_max:.2f} ft-lbs")
+    print(data['TLLTD_Front'])
     
 
     #Trim Steering Plot

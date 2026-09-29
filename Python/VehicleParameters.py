@@ -18,6 +18,7 @@ IN2M    = 0.0254
 M2IN    = 1 / IN2M
 RAD2DEG = 180.0 / np.pi
 DEG2RAD = np.pi / 180.0
+MPS2MPH = 2.23694
 
 
 '''
@@ -31,8 +32,8 @@ RearSpringRate = 640 * LBF2N / IN2M #N/m
 
 #LOOK AT PHONE FOR NUMEBRS
 
-FrontRollStiffness = 18875 * FTLB2NM      # N*m/rad
-RearRollStiffness  = 22285 * FTLB2NM      # N*m/rad
+FrontRollStiffness = 25000 * FTLB2NM      # N*m/rad
+RearRollStiffness  = 23000 * FTLB2NM      # N*m/rad
 FrontHeaveStiffness = 400 * LBF2N / IN2M  # N/m
 RearHeaveStiffness  = 375 * LBF2N / IN2M  # N/m
 #ChassisStiffness
@@ -59,8 +60,8 @@ YawInertia = 92.0 # kg*m^2
 
 ##WheelSpacing
 Wheelbase_mm = 60.5*IN2M*1000 # ~60.5 in
-FTrackwidth_mm = 47*IN2M*1000 # ~47 in
-RTrackwidth_mm = 46*IN2M*1000 # ~46 in
+FTrackwidth_mm = 50*IN2M*1000 # ~47 in
+RTrackwidth_mm = 49*IN2M*1000 # ~46 in
 
 ##Camber
 CamberBounds = [0, -2, -3] # deg
