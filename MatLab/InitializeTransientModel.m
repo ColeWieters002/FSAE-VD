@@ -6,6 +6,9 @@ clc;
 %% VEHICLE PARAMETERS
 
 VehicleParameters;
+[RS3GPS_Speed, RS3LateralAcc, RS3YawRate, RS3SteeringSignal] = RS3Input("RS3 Data/RS3 Dobbins Skidpad2.xlsx");
+
+
 
 
 %% LOAD TIRE DATA

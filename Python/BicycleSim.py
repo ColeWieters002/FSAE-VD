@@ -85,7 +85,7 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
     b=L*vp.WeightDist
 
     m=vp.TotalMass_kg
-    ms=vp.UnsprungMass_kg
+    ms=vp.SprungMass_kg
     g=vp.Gravity
 
     tf=vp.FTrackwidth_mm/1000.0
@@ -128,6 +128,20 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
 
         DF_RL=-DF*(1.0-vp.AeroBalance)*.5
         DF_RR=-DF*(1.0-vp.AeroBalance)*.5
+
+
+        # Static camber is defined at static ride height.  In this
+        # quasi-steady bicycle model, aero is the only symmetric axle-heave
+        # displacement relative to that state.  Body roll is handled below
+        # through the measured roll-camber gain, so do not add it here.
+        if getattr(vp,"IncludeAeroHeaveCamber",True):
+            FrontAeroDownforce=-DF*vp.AeroBalance
+            RearAeroDownforce=-DF*(1.0-vp.AeroBalance)
+            FrontAeroHeave_mm=1000.0*FrontAeroDownforce/vp.FrontHeaveStiffness
+            RearAeroHeave_mm=1000.0*RearAeroDownforce/vp.RearHeaveStiffness
+        else:
+            FrontAeroHeave_mm=0.0
+            RearAeroHeave_mm=0.0
 
 
         #Lateral Load Transfer
@@ -192,12 +206,42 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
         FZ_RR=max(FZ_RR,0.0)
 
 
-        #Camber
-        gamma_FL=vp.Camber_By_Travel_deg(0,"left")
-        gamma_FR=vp.Camber_By_Travel_deg(0,"right")
+        # Camber: static + aero heave + roll + steering gain.  The parameter
+        # helper returns vehicle-coordinate camber; the right-tire TIR input
+        # is mirrored below because the supplied TIR is a left-tire model.
+        if not hasattr(vp,"CamberAtCorner_deg"):
+            raise AttributeError(
+                "VehicleParameters.py must define CamberAtCorner_deg. "
+                "Use the matching VehicleParameters.py supplied with this upgrade."
+            )
 
-        gamma_RL=vp.Camber_By_Travel_deg(0,"left")
-        gamma_RR=vp.Camber_By_Travel_deg(0,"right")
+        roll_deg=phi*RAD2DEG
+        steer_deg=delta*RAD2DEG
+        gamma_FL=vp.CamberAtCorner_deg("front","left",roll_deg,steer_deg,FrontAeroHeave_mm)
+        gamma_FR=vp.CamberAtCorner_deg("front","right",roll_deg,steer_deg,FrontAeroHeave_mm)
+        gamma_RL=vp.CamberAtCorner_deg("rear","left",roll_deg,0.0,RearAeroHeave_mm)
+        gamma_RR=vp.CamberAtCorner_deg("rear","right",roll_deg,0.0,RearAeroHeave_mm)
+
+        # Physical wheel-local camber for reporting.  The right-side gamma
+        # values above are sign-mirrored only for the left-tire TIR convention;
+        # they are not a "positive camber" result at the right wheels.
+        Camber_FL_deg=gamma_FL
+        Camber_FR_deg=-gamma_FR
+        Camber_RL_deg=gamma_RL
+        Camber_RR_deg=-gamma_RR
+
+
+        # Equivalent wheel-center travel relative to static ride height.
+        # Positive is bump/compression; negative is rebound/extension.
+        # This is rigid-body wheel travel, not damper stroke: convert through
+        # the appropriate motion ratio before comparing to damper travel.
+        # Positive roll in this model loads/compresses the right side.
+        FrontRollTravel_mm=1000.0*(tf/2.0)*np.tan(phi)
+        RearRollTravel_mm=1000.0*(tr/2.0)*np.tan(phi)
+        Travel_FL_mm=FrontAeroHeave_mm-FrontRollTravel_mm
+        Travel_FR_mm=FrontAeroHeave_mm+FrontRollTravel_mm
+        Travel_RL_mm=RearAeroHeave_mm-RearRollTravel_mm
+        Travel_RR_mm=RearAeroHeave_mm+RearRollTravel_mm
 
 
         #Tire Lateral Forces
@@ -211,13 +255,10 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
         #Body Coordinates
         Fx_FL_body=-FY_FL*np.sin(delta)
         Fy_FL_body=FY_FL*np.cos(delta)
-
         Fx_FR_body=-FY_FR*np.sin(delta)
         Fy_FR_body=FY_FR*np.cos(delta)
-
         Fx_RL_body=0.0
         Fy_RL_body=FY_RL
-
         Fx_RR_body=0.0
         Fy_RR_body=FY_RR
 
@@ -281,6 +322,24 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
             "FrontRollMoment_Nm":FrontRollMoment,
             "RearRollMoment_Nm":RearRollMoment,
 
+            "FrontAeroHeave_mm":FrontAeroHeave_mm,
+            "RearAeroHeave_mm":RearAeroHeave_mm,
+            "FrontRollTravel_mm":FrontRollTravel_mm,
+            "RearRollTravel_mm":RearRollTravel_mm,
+            "Travel_FL_mm":Travel_FL_mm,
+            "Travel_FR_mm":Travel_FR_mm,
+            "Travel_RL_mm":Travel_RL_mm,
+            "Travel_RR_mm":Travel_RR_mm,
+
+            "gamma_FL_deg":gamma_FL,
+            "gamma_FR_deg":gamma_FR,
+            "gamma_RL_deg":gamma_RL,
+            "gamma_RR_deg":gamma_RR,
+            "Camber_FL_deg":Camber_FL_deg,
+            "Camber_FR_deg":Camber_FR_deg,
+            "Camber_RL_deg":Camber_RL_deg,
+            "Camber_RR_deg":Camber_RR_deg,
+
             "FZ_FL_N":FZ_FL,
             "FZ_FR_N":FZ_FR,
             "FZ_RL_N":FZ_RL,
@@ -330,6 +389,18 @@ def solve(Vx,delta,vp,tire,x0=None,max_iter=200,tol_beta=1e-4,tol_r=1e-3,tol_Ay=
                 f.write(f"FR = {data['alpha_FR_deg']}\n")
                 f.write(f"RL = {data['alpha_RL_deg']}\n")
                 f.write(f"RR = {data['alpha_RR_deg']}\n")
+
+                f.write("\nCamber (deg; physical wheel-local, negative=negative camber)\n")
+                f.write(f"FL = {Camber_FL_deg}\n")
+                f.write(f"FR = {Camber_FR_deg}\n")
+                f.write(f"RL = {Camber_RL_deg}\n")
+                f.write(f"RR = {Camber_RR_deg}\n")
+
+                f.write("\nWheel Travel (mm; +compression, -extension)\n")
+                f.write(f"FL = {Travel_FL_mm}\n")
+                f.write(f"FR = {Travel_FR_mm}\n")
+                f.write(f"RL = {Travel_RL_mm}\n")
+                f.write(f"RR = {Travel_RR_mm}\n")
 
                 f.write("\nFZ (N)\n")
                 f.write(f"FL = {FZ_FL}\n")

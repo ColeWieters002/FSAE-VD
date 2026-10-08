@@ -1,295 +1,324 @@
+"""Quasi-static dual-track YMD force solver.
+
+This is intentionally force-equivalent to the supplied solver.  The only
+functional cleanup is a safe LLTD diagnostic at Ay = 0, where total load
+transfer is zero and LLTD is undefined.
+"""
+
 import numpy as np
+from scipy.optimize import least_squares as ls
+
 import TireFunctions as MF
 import VehicleParameters as vp
-from VehicleParameters import LBF2N,N2LBF,FTLB2NM,NM2FTLB,FT2M,M2FT,IN2M,M2IN,RAD2DEG,DEG2RAD
-from scipy.optimize import least_squares as ls
+from VehicleParameters import DEG2RAD, RAD2DEG, LBF2N, N2LBF, FT2M
 
 
 class Tire:
-    def __init__(self,tir_path,pressure_bar=None):
-        sec=self._parse_tir(tir_path)
-        self.p_fy=np.array([sec["LATERAL_COEFFICIENTS"][n] for n in MF.FY_Params],float)
-        self.q_mz=np.array([sec["ALIGNING_COEFFICIENTS"][n] for n in MF.MZ_Params],float)
-        self.p_fx=np.array([sec["LONGITUDINAL_COEFFICIENTS"][n] for n in MF.FX_Params],float)
-        self.fz0=sec["VERTICAL"]["FNOMIN"]/LBF2N
-        self.r0=sec["DIMENSION"]["UNLOADED_RADIUS"]/FT2M
-        self.pressure_bar=pressure_bar
-        self.path=tir_path
+    def __init__(self, tir_path, pressure_bar=None):
+        sections = self._parse_tir(tir_path)
+        self.p_fy = np.array(
+            [sections["LATERAL_COEFFICIENTS"][name] for name in MF.FY_Params],
+            dtype=float,
+        )
+        self.q_mz = np.array(
+            [sections["ALIGNING_COEFFICIENTS"][name] for name in MF.MZ_Params],
+            dtype=float,
+        )
+        self.p_fx = np.array(
+            [sections["LONGITUDINAL_COEFFICIENTS"][name] for name in MF.FX_Params],
+            dtype=float,
+        )
+        self.fz0 = sections["VERTICAL"]["FNOMIN"] / LBF2N
+        self.r0 = sections["DIMENSION"]["UNLOADED_RADIUS"] / FT2M
+        self.pressure_bar = pressure_bar
+        self.path = tir_path
 
-    def FY(self,SA_deg,FZ_lbf,IA_deg):
-        return MF.FY((SA_deg,FZ_lbf,IA_deg),self.p_fy,self.fz0)
+    def FY(self, slip_angle_deg, fz_lbf, camber_deg):
+        return MF.FY((slip_angle_deg, fz_lbf, camber_deg), self.p_fy, self.fz0)
 
-    def MZ(self,SA_deg,FZ_lbf,IA_deg):
-        return MF.MZ((SA_deg,FZ_lbf,IA_deg),self.q_mz,self.p_fy,self.fz0,self.r0)
+    def MZ(self, slip_angle_deg, fz_lbf, camber_deg):
+        return MF.MZ(
+            (slip_angle_deg, fz_lbf, camber_deg),
+            self.q_mz,
+            self.p_fy,
+            self.fz0,
+            self.r0,
+        )
 
-    def FX(self,SR,FZ_lbf,IA_deg):
-        return MF.FX((SR,FZ_lbf,IA_deg),self.p_fx,self.fz0)
+    def FX(self, slip_ratio, fz_lbf, camber_deg):
+        return MF.FX((slip_ratio, fz_lbf, camber_deg), self.p_fx, self.fz0)
 
     @staticmethod
     def _parse_tir(path):
-        sections,current={},None
-        with open(path,"r") as f:
-            for raw in f:
-                line=raw.split("!",1)[0].strip()
+        sections = {}
+        current_section = None
+        with open(path, "r", encoding="utf-8") as tire_file:
+            for raw_line in tire_file:
+                line = raw_line.split("!", 1)[0].strip()
                 if not line:
                     continue
                 if line.startswith("[") and line.endswith("]"):
-                    current=line[1:-1].strip().upper()
-                    sections[current]={}
+                    current_section = line[1:-1].strip().upper()
+                    sections[current_section] = {}
                     continue
-                if current is None or "=" not in line:
+                if current_section is None or "=" not in line:
                     continue
-                k,v=line.split("=",1)
-                k=k.strip()
-                v=v.strip().strip("'").strip('"')
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip("'").strip('"')
                 try:
-                    v=float(v)
+                    value = float(value)
                 except ValueError:
                     pass
-                sections[current][k]=v
+                sections[current_section][key] = value
         return sections
 
-def solve(Vx,beta,delta,vp,tire,debug=False):
-    #Base Variables
-    L=vp.Wheelbase_mm/1000.0
-    a=L*(1.0-vp.WeightDist)
-    b=L*vp.WeightDist
-    m=vp.TotalMass_kg
-    ms=vp.UnsprungMass_kg
-    g=vp.Gravity
-    tf=vp.FTrackwidth_mm/1000.0
-    tr=vp.RTrackwidth_mm/1000.0
-    FrontRC=vp.FrontRollCenter_mm/1000.0
-    RearRC=vp.RearRollCenter_mm/1000.0
-    RollAxisHeight=(FrontRC*b+RearRC*a)/L
-    h_cg=vp.CG_mm/1000.0
 
-    #Roll Stiffness Distribution
-    Kphi_Total=vp.FrontRollStiffness+vp.RearRollStiffness
-    FrontRollDistribution=vp.FrontRollStiffness/Kphi_Total
-    RearRollDistribution=vp.RearRollStiffness/Kphi_Total
+def solve(vx_mps, beta_rad, delta_rad, vehicle=vp, tire=None, debug=False):
+    """Solve lateral-force and roll equilibrium for one beta/delta point.
 
-    def calculate_state(Ay, phi,debug=False):
-        #Zero Yaw Rate YMD
-        r=0.0
+    The yaw moment is deliberately *not* constrained to zero; that is what
+    makes this a yaw-moment-diagram point rather than a steady-state trim
+    solution.
+    """
+    if tire is None:
+        tire = Tire(vehicle.TireModel, vehicle.TirePressure_bar)
 
-        #Slip Angles
-        Vy=Vx*np.tan(beta)
+    wheelbase = vehicle.Wheelbase_mm / 1000.0
+    a = wheelbase * (1.0 - vehicle.WeightDist)
+    b = wheelbase * vehicle.WeightDist
+    mass = vehicle.TotalMass_kg
+    sprung_mass = vehicle.SprungMass_kg
+    gravity = vehicle.Gravity
+    front_track = vehicle.FTrackwidth_mm / 1000.0
+    rear_track = vehicle.RTrackwidth_mm / 1000.0
+    front_rc = vehicle.FrontRollCenter_mm / 1000.0
+    rear_rc = vehicle.RearRollCenter_mm / 1000.0
+    roll_axis_height = (front_rc * b + rear_rc * a) / wheelbase
+    cg_height = vehicle.CG_mm / 1000.0
+    total_roll_stiffness = vehicle.FrontRollStiffness + vehicle.RearRollStiffness
 
-        alpha_FL=delta-np.arctan2(Vy+r*a,Vx-r*tf/2)
-        alpha_FR=delta-np.arctan2(Vy+r*a,Vx+r*tf/2)
-        alpha_RL=-np.arctan2(Vy-r*b,Vx-r*tr/2)
-        alpha_RR=-np.arctan2(Vy-r*b,Vx+r*tr/2)
+    def calculate_state(ay_mps2, roll_rad):
+        # This is the r = 0 instantaneous/quasi-static YMD formulation.
+        yaw_rate = 0.0
+        vy_mps = vx_mps * np.tan(beta_rad)
 
-        #Base FZs
-        FZ_FL=m*g*vp.WeightDist/2
-        FZ_FR=m*g*vp.WeightDist/2
-        FZ_RL=m*g*(1-vp.WeightDist)/2
-        FZ_RR=m*g*(1-vp.WeightDist)/2
+        alpha_fl = delta_rad - np.arctan2(vy_mps + yaw_rate * a, vx_mps - yaw_rate * front_track / 2.0)
+        alpha_fr = delta_rad - np.arctan2(vy_mps + yaw_rate * a, vx_mps + yaw_rate * front_track / 2.0)
+        alpha_rl = -np.arctan2(vy_mps - yaw_rate * b, vx_mps - yaw_rate * rear_track / 2.0)
+        alpha_rr = -np.arctan2(vy_mps - yaw_rate * b, vx_mps + yaw_rate * rear_track / 2.0)
 
-        #Downforce
-        DF = .5*vp.AirDensity*Vx**2*vp.CL*vp.A
-        DF_FL=-DF*vp.AeroBalance*.5
-        DF_FR=-DF*vp.AeroBalance*.5
-        DF_RL=-DF*(1-vp.AeroBalance)*.5
-        DF_RR=-DF*(1-vp.AeroBalance)*.5
+        # Static corner weights.
+        fz_fl = mass * gravity * vehicle.WeightDist / 2.0
+        fz_fr = mass * gravity * vehicle.WeightDist / 2.0
+        fz_rl = mass * gravity * (1.0 - vehicle.WeightDist) / 2.0
+        fz_rr = mass * gravity * (1.0 - vehicle.WeightDist) / 2.0
 
-        #Lateral Load Transfer
-        Y=ms*Ay
-        YF=Y*b/L
-        YR=Y*a/L
-       
-        FrontGeoMoment=YF*FrontRC
-        RearGeoMoment=YR*RearRC
-       
-        # Elastic suspension moments generated by the solved roll angle
-        FrontElasticMoment = vp.FrontRollStiffness * phi
-        RearElasticMoment = vp.RearRollStiffness * phi
+        # CL is negative for downforce in the supplied parameter convention.
+        aero_force = 0.5 * vehicle.AirDensity * vx_mps**2 * vehicle.CL * vehicle.A
+        df_fl = -aero_force * vehicle.AeroBalance * 0.5
+        df_fr = -aero_force * vehicle.AeroBalance * 0.5
+        df_rl = -aero_force * (1.0 - vehicle.AeroBalance) * 0.5
+        df_rr = -aero_force * (1.0 - vehicle.AeroBalance) * 0.5
 
-        FrontRollMoment = FrontGeoMoment + FrontElasticMoment
-        RearRollMoment = RearGeoMoment + RearElasticMoment
+        # Static camber is defined at static ride height.  The YMD has no
+        # absolute heave state, so only aero's added vertical load produces a
+        # symmetric heave displacement about that condition.
+        if getattr(vehicle, "IncludeAeroHeaveCamber", True):
+            front_aero_downforce_n = -aero_force * vehicle.AeroBalance
+            rear_aero_downforce_n = -aero_force * (1.0 - vehicle.AeroBalance)
+            front_heave_mm = 1000.0 * front_aero_downforce_n / vehicle.FrontHeaveStiffness
+            rear_heave_mm = 1000.0 * rear_aero_downforce_n / vehicle.RearHeaveStiffness
+        else:
+            front_heave_mm = 0.0
+            rear_heave_mm = 0.0
 
-        FrontLoadTransfer = FrontRollMoment / tf
-        RearLoadTransfer = RearRollMoment / tr
+        # Quasi-static geometric + elastic lateral load transfer.
+        sprung_lateral_force = sprung_mass * ay_mps2
+        front_lateral_share = sprung_lateral_force * b / wheelbase
+        rear_lateral_share = sprung_lateral_force * a / wheelbase
+        front_geo_moment = front_lateral_share * front_rc
+        rear_geo_moment = rear_lateral_share * rear_rc
+        front_elastic_moment = vehicle.FrontRollStiffness * roll_rad
+        rear_elastic_moment = vehicle.RearRollStiffness * roll_rad
+        front_roll_moment = front_geo_moment + front_elastic_moment
+        rear_roll_moment = rear_geo_moment + rear_elastic_moment
+        front_load_transfer = front_roll_moment / front_track
+        rear_load_transfer = rear_roll_moment / rear_track
 
-        DF_FL-=FrontLoadTransfer
-        DF_FR+=FrontLoadTransfer
-        DF_RL-=RearLoadTransfer
-        DF_RR+=RearLoadTransfer
+        df_fl -= front_load_transfer
+        df_fr += front_load_transfer
+        df_rl -= rear_load_transfer
+        df_rr += rear_load_transfer
 
-        #Apply Aero and Load Transfer
-        FZ_FL_raw = FZ_FL + DF_FL
-        FZ_FR_raw = FZ_FR + DF_FR
-        FZ_RL_raw = FZ_RL + DF_RL
-        FZ_RR_raw = FZ_RR + DF_RR
+        fz_fl_raw = fz_fl + df_fl
+        fz_fr_raw = fz_fr + df_fr
+        fz_rl_raw = fz_rl + df_rl
+        fz_rr_raw = fz_rr + df_rr
 
-        #Front axle: if one side goes negative, give its deficit to the other side
-        FZ_FL, FZ_FR = FZ_FL_raw, FZ_FR_raw
-        if FZ_FL < 0:
-            FZ_FR += FZ_FL   # FZ_FL is negative, so this subtracts the deficit
-            FZ_FL = 0.0
-        elif FZ_FR < 0:
-            FZ_FL += FZ_FR
-            FZ_FR = 0.0
+        # Preserve axle vertical load if an inside wheel lifts.
+        fz_fl, fz_fr = fz_fl_raw, fz_fr_raw
+        if fz_fl < 0.0:
+            fz_fr += fz_fl
+            fz_fl = 0.0
+        elif fz_fr < 0.0:
+            fz_fl += fz_fr
+            fz_fr = 0.0
 
-        #Rear axle: same idea
-        FZ_RL, FZ_RR = FZ_RL_raw, FZ_RR_raw
-        if FZ_RL < 0:
-            FZ_RR += FZ_RL
-            FZ_RL = 0.0
-        elif FZ_RR < 0:
-            FZ_RL += FZ_RR
-            FZ_RR = 0.0
+        fz_rl, fz_rr = fz_rl_raw, fz_rr_raw
+        if fz_rl < 0.0:
+            fz_rr += fz_rl
+            fz_rl = 0.0
+        elif fz_rr < 0.0:
+            fz_rl += fz_rr
+            fz_rr = 0.0
 
-        FZ_FL=max(FZ_FL,0.0)
-        FZ_FR=max(FZ_FR,0.0)
-        FZ_RL=max(FZ_RL,0.0)
-        FZ_RR=max(FZ_RR,0.0)
+        fz_fl = max(fz_fl, 0.0)
+        fz_fr = max(fz_fr, 0.0)
+        fz_rl = max(fz_rl, 0.0)
+        fz_rr = max(fz_rr, 0.0)
 
-        #Camber
-        gamma_FL=vp.Camber_By_Travel_deg(-2,"left")
-        gamma_FR=vp.Camber_By_Travel_deg(-2,"right")
-        gamma_RL=vp.Camber_By_Travel_deg(-2,"left")
-        gamma_RR=vp.Camber_By_Travel_deg(-2,"right")
+        # Measured heave, roll, and steering camber gains.  The vehicle
+        # parameter helper returns vehicle-coordinate camber; right tyre
+        # inputs are mirrored below for the left-tyre TIR convention.
+        roll_deg = roll_rad * RAD2DEG
+        steer_deg = delta_rad * RAD2DEG
+        gamma_fl = vehicle.CamberAtCorner_deg("front", "left", roll_deg, steer_deg, front_heave_mm)
+        gamma_fr = vehicle.CamberAtCorner_deg("front", "right", roll_deg, steer_deg, front_heave_mm)
+        gamma_rl = vehicle.CamberAtCorner_deg("rear", "left", roll_deg, 0.0, rear_heave_mm)
+        gamma_rr = vehicle.CamberAtCorner_deg("rear", "right", roll_deg, 0.0, rear_heave_mm)
 
+        # Equivalent wheel travel relative to static ride height.  Positive is
+        # bump/compression; negative is rebound/extension.  This is a rigid
+        # body roll approximation at the wheel centerline, not spring travel,
+        # so a motion-ratio conversion is still required for damper stroke.
+        # Positive roll in this YMD convention loads the right-hand tyres.
+        front_roll_travel_mm = 1000.0 * (front_track / 2.0) * np.tan(roll_rad)
+        rear_roll_travel_mm = 1000.0 * (rear_track / 2.0) * np.tan(roll_rad)
+        travel_fl_mm = front_heave_mm - front_roll_travel_mm
+        travel_fr_mm = front_heave_mm + front_roll_travel_mm
+        travel_rl_mm = rear_heave_mm - rear_roll_travel_mm
+        travel_rr_mm = rear_heave_mm + rear_roll_travel_mm
 
-        #Find Tire Lateral Forces
-        FY_FL=tire.FY(alpha_FL*RAD2DEG,FZ_FL*N2LBF,gamma_FL)*LBF2N
-        FY_FR=-tire.FY(-alpha_FR*RAD2DEG,FZ_FR*N2LBF,-gamma_FR)*LBF2N
-        FY_RL=tire.FY(alpha_RL*RAD2DEG,FZ_RL*N2LBF,gamma_RL)*LBF2N
-        FY_RR=-tire.FY(-alpha_RR*RAD2DEG,FZ_RR*N2LBF,-gamma_RR)*LBF2N
+        # Mirror the left-tyre TIR model for the right side.
+        fy_fl = tire.FY(alpha_fl * RAD2DEG, fz_fl * N2LBF, gamma_fl) * LBF2N
+        fy_fr = -tire.FY(-alpha_fr * RAD2DEG, fz_fr * N2LBF, -gamma_fr) * LBF2N
+        fy_rl = tire.FY(alpha_rl * RAD2DEG, fz_rl * N2LBF, gamma_rl) * LBF2N
+        fy_rr = -tire.FY(-alpha_rr * RAD2DEG, fz_rr * N2LBF, -gamma_rr) * LBF2N
 
-        #Convert Tire Forces to Body Coordinates
-        Fx_FL_body=-FY_FL*np.sin(delta)
-        Fy_FL_body=FY_FL*np.cos(delta)
-        Fx_FR_body=-FY_FR*np.sin(delta)
-        Fy_FR_body=FY_FR*np.cos(delta)
-        Fx_RL_body=0.0
-        Fy_RL_body=FY_RL
-        Fx_RR_body=0.0
-        Fy_RR_body=FY_RR
+        # Rotate front lateral forces from wheel to body axes.
+        fx_fl_body = -fy_fl * np.sin(delta_rad)
+        fy_fl_body = fy_fl * np.cos(delta_rad)
+        fx_fr_body = -fy_fr * np.sin(delta_rad)
+        fy_fr_body = fy_fr * np.cos(delta_rad)
+        fx_rl_body = 0.0
+        fy_rl_body = fy_rl
+        fx_rr_body = 0.0
+        fy_rr_body = fy_rr
 
-        #Find Yaw Moment From Tire Forces About CG
-        ForceMoment_FL=a*Fy_FL_body-(tf/2)*Fx_FL_body
-        ForceMoment_FR=a*Fy_FR_body-(-tf/2)*Fx_FR_body
-        ForceMoment_RL=-b*Fy_RL_body
-        ForceMoment_RR=-b*Fy_RR_body
+        moment_fl = a * fy_fl_body - (front_track / 2.0) * fx_fl_body
+        moment_fr = a * fy_fr_body - (-front_track / 2.0) * fx_fr_body
+        moment_rl = -b * fy_rl_body
+        moment_rr = -b * fy_rr_body
+        force_moment_total = moment_fl + moment_fr + moment_rl + moment_rr
+        fy_total = fy_fl_body + fy_fr_body + fy_rl_body + fy_rr_body
 
-        ForceMoment_Total=ForceMoment_FL+ForceMoment_FR+ForceMoment_RL+ForceMoment_RR
-
-        #Force and Moment Totals
-        FY_Total=Fy_FL_body+Fy_FR_body+Fy_RL_body+Fy_RR_body
-        Mz_Vehicle=ForceMoment_Total
+        total_load_transfer = front_load_transfer + rear_load_transfer
+        if abs(total_load_transfer) < 1e-12:
+            tlltd_front = np.nan
+            tlltd_rear = np.nan
+        else:
+            tlltd_front = front_load_transfer / total_load_transfer
+            tlltd_rear = 1.0 - tlltd_front
 
         data = {
-        # Vehicle state
-        "Ay": Ay,
-        "Ay_g": Ay / g,
-        "phi_rad": phi,
-        "phi_deg": phi * RAD2DEG,
-
-        # Load transfer
-        "FrontLoadTransfer_N": FrontLoadTransfer,
-        "RearLoadTransfer_N": RearLoadTransfer,
-        "TLLTD_Front": FrontLoadTransfer/(FrontLoadTransfer+RearLoadTransfer),
-        "TLLTD_Rear": 1-(FrontLoadTransfer/(FrontLoadTransfer+RearLoadTransfer)),
-
-        # Roll
-        "RollAxisHeight_m": RollAxisHeight,
-        "FrontGeoMoment_Nm": FrontGeoMoment,
-        "RearGeoMoment_Nm": RearGeoMoment,
-        "FrontElasticMoment_Nm": FrontElasticMoment,
-        "RearElasticMoment_Nm": RearElasticMoment,
-        "FrontRollMoment_Nm": FrontRollMoment,
-        "RearRollMoment_Nm": RearRollMoment,
-
-        # Vertical tire loads
-        "FZ_FL_N": FZ_FL,
-        "FZ_FR_N": FZ_FR,
-        "FZ_RL_N": FZ_RL,
-        "FZ_RR_N": FZ_RR,
-
-        # Raw vertical loads -- useful for detecting wheel lift
-        "FZ_FL_raw_N": FZ_FL_raw,
-        "FZ_FR_raw_N": FZ_FR_raw,
-        "FZ_RL_raw_N": FZ_RL_raw,
-        "FZ_RR_raw_N": FZ_RR_raw,
-
-        # Lateral tire forces
-        "FY_FL_N": FY_FL,
-        "FY_FR_N": FY_FR,
-        "FY_RL_N": FY_RL,
-        "FY_RR_N": FY_RR,
-        "FY_Total_N": FY_Total,
-
-        # Slip angles
-        "alpha_FL_deg": alpha_FL * RAD2DEG,
-        "alpha_FR_deg": alpha_FR * RAD2DEG,
-        "alpha_RL_deg": alpha_RL * RAD2DEG,
-        "alpha_RR_deg": alpha_RR * RAD2DEG,
-
-        # Yaw moments
-        "ForceMoment_Total_Nm": ForceMoment_Total,
-        "Mz_Vehicle_Nm": Mz_Vehicle,
-    }
+            "Ay": ay_mps2,
+            "Ay_g": ay_mps2 / gravity,
+            "phi_rad": roll_rad,
+            "phi_deg": roll_rad * RAD2DEG,
+            "FrontLoadTransfer_N": front_load_transfer,
+            "RearLoadTransfer_N": rear_load_transfer,
+            "TLLTD_Front": tlltd_front,
+            "TLLTD_Rear": tlltd_rear,
+            "RollAxisHeight_m": roll_axis_height,
+            "FrontGeoMoment_Nm": front_geo_moment,
+            "RearGeoMoment_Nm": rear_geo_moment,
+            "FrontElasticMoment_Nm": front_elastic_moment,
+            "RearElasticMoment_Nm": rear_elastic_moment,
+            "FrontRollMoment_Nm": front_roll_moment,
+            "RearRollMoment_Nm": rear_roll_moment,
+            "FrontAeroHeave_mm": front_heave_mm,
+            "RearAeroHeave_mm": rear_heave_mm,
+            "FrontRollTravel_mm": front_roll_travel_mm,
+            "RearRollTravel_mm": rear_roll_travel_mm,
+            "Travel_FL_mm": travel_fl_mm,
+            "Travel_FR_mm": travel_fr_mm,
+            "Travel_RL_mm": travel_rl_mm,
+            "Travel_RR_mm": travel_rr_mm,
+            "gamma_FL_deg": gamma_fl,
+            "gamma_FR_deg": gamma_fr,
+            "gamma_RL_deg": gamma_rl,
+            "gamma_RR_deg": gamma_rr,
+            "FZ_FL_N": fz_fl,
+            "FZ_FR_N": fz_fr,
+            "FZ_RL_N": fz_rl,
+            "FZ_RR_N": fz_rr,
+            "FZ_FL_raw_N": fz_fl_raw,
+            "FZ_FR_raw_N": fz_fr_raw,
+            "FZ_RL_raw_N": fz_rl_raw,
+            "FZ_RR_raw_N": fz_rr_raw,
+            "FY_FL_N": fy_fl,
+            "FY_FR_N": fy_fr,
+            "FY_RL_N": fy_rl,
+            "FY_RR_N": fy_rr,
+            "FY_Total_N": fy_total,
+            "alpha_FL_deg": alpha_fl * RAD2DEG,
+            "alpha_FR_deg": alpha_fr * RAD2DEG,
+            "alpha_RL_deg": alpha_rl * RAD2DEG,
+            "alpha_RR_deg": alpha_rr * RAD2DEG,
+            "ForceMoment_FL_Nm": moment_fl,
+            "ForceMoment_FR_Nm": moment_fr,
+            "ForceMoment_RL_Nm": moment_rl,
+            "ForceMoment_RR_Nm": moment_rr,
+            "ForceMoment_Total_Nm": force_moment_total,
+            "Mz_Vehicle_Nm": force_moment_total,
+        }
 
         if debug:
-            with open("YMD_Debug.txt","a") as f:
-                f.write("\n====================================\n")
-                f.write(f"Vx = {Vx}\n")
-                f.write(f"beta = {beta*RAD2DEG} deg\n")
-                f.write(f"delta = {delta*RAD2DEG} deg\n")
-                f.write("--- STATE ---\n")
-                f.write(f"r = {r}\n")
-                f.write(f"Ay = {Ay}\n")
+            _append_debug(vx_mps, beta_rad, delta_rad, data)
 
-                f.write("\nSlip Angles (deg)\n")
-                f.write(f"FL = {data["alpha_FL_deg"]}\n")
-                f.write(f"FR = {data["alpha_FR_deg"]}\n")
-                f.write(f"RL = {data["alpha_RL_deg"]}\n")
-                f.write(f"RR = {data["alpha_RR_deg"]}\n")
+        return fy_total, force_moment_total, data
 
-                f.write("\nFZ (N)\n")
-                f.write(f"FL = {FZ_FL}\n")
-                f.write(f"FR = {FZ_FR}\n")
-                f.write(f"RL = {FZ_RL}\n")
-                f.write(f"RR = {FZ_RR}\n")
+    def residual(state):
+        ay_mps2, roll_rad = state
+        fy_total, _, _ = calculate_state(ay_mps2, roll_rad)
+        lateral_force_residual = ay_mps2 - fy_total / mass
+        roll_residual = total_roll_stiffness * roll_rad - sprung_mass * ay_mps2 * (cg_height - roll_axis_height)
+        return [lateral_force_residual, roll_residual]
 
-                f.write("\nFY (N)\n")
-                f.write(f"FL = {FY_FL}\n")
-                f.write(f"FR = {FY_FR}\n")
-                f.write(f"RL = {FY_RL}\n")
-                f.write(f"RR = {FY_RR}\n")
-                f.write(f"FY Total = {FY_Total}\n")
-
-                f.write("\nForce Moments About CG (Nm)\n")
-                f.write(f"FL = {ForceMoment_FL}\n")
-                f.write(f"FR = {ForceMoment_FR}\n")
-                f.write(f"RL = {ForceMoment_RL}\n")
-                f.write(f"RR = {ForceMoment_RR}\n")
-                f.write(f"Force Moment Total = {ForceMoment_Total}\n")
-
-                f.write(f"\nTOTAL Mz = {Mz_Vehicle}\n")
-
-        return FY_Total,Mz_Vehicle,data
-
-    def residual(x):
-        Ay,phi,=x
-        FY_Total,Mz_Vehicle,_=calculate_state(Ay,phi)
-        R1=Ay-FY_Total/m
-        R2 = ((vp.FrontRollStiffness + vp.RearRollStiffness) * phi- ms * Ay * (h_cg - RollAxisHeight))
-        return [R1,R2]
-
-    #Solve for Lateral Acceleration
-    result=ls(residual,np.array([0.0,0.0]))
-
-    if result.cost>1e-6:
+    result = ls(residual, np.array([0.0, 0.0]))
+    if result.cost > 1e-6:
         print(f"warning: residual not driven to zero (cost={result.cost:.2e})")
 
-    Ay,phi=result.x[0],result.x[1]
+    ay_mps2, roll_rad = result.x
+    fy_total, yaw_moment_nm, data = calculate_state(ay_mps2, roll_rad)
+    return ay_mps2, yaw_moment_nm, roll_rad, data
 
 
-    #Get Yaw Moment at Final Solved State
-    FY_Total,Mz_Vehicle,data=calculate_state(Ay,phi,debug=debug)
-
-    return Ay,Mz_Vehicle,phi,data
+def _append_debug(vx_mps, beta_rad, delta_rad, data):
+    with open("YMD_Debug.txt", "a", encoding="utf-8") as debug_file:
+        debug_file.write("\n====================================\n")
+        debug_file.write(f"Vx = {vx_mps}\n")
+        debug_file.write(f"beta = {beta_rad * RAD2DEG} deg\n")
+        debug_file.write(f"delta = {delta_rad * RAD2DEG} deg\n")
+        for heading, keys in (
+            ("Slip Angles (deg)", ("alpha_FL_deg", "alpha_FR_deg", "alpha_RL_deg", "alpha_RR_deg")),
+            ("FZ (N)", ("FZ_FL_N", "FZ_FR_N", "FZ_RL_N", "FZ_RR_N")),
+            ("FY (N)", ("FY_FL_N", "FY_FR_N", "FY_RL_N", "FY_RR_N")),
+            ("Wheel Travel (mm; +compression, -extension)", ("Travel_FL_mm", "Travel_FR_mm", "Travel_RL_mm", "Travel_RR_mm")),
+        ):
+            debug_file.write(f"\n{heading}\n")
+            for key in keys:
+                debug_file.write(f"{key} = {data[key]}\n")
+        debug_file.write(f"FY Total = {data['FY_Total_N']}\n")
+        debug_file.write(f"TOTAL Mz = {data['Mz_Vehicle_Nm']}\n")

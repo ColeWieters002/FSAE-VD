@@ -111,14 +111,28 @@ a_ft = a_in * IN2FT;
 
 %% ACTUATION
 
-FrontSpringRate = 820;       % lbf/in
-RearSpringRate  = 640;       % lbf/in
+% Suspension architecture:
+%   Front is decoupled: one heave spring plus a separate roll element.
+%   Rear is coupled: two corner springs plus a Z-bar roll element.
+FrontHeaveSpringRate = 300;  % lbf/in, single front heave spring
+FrontHeaveMotionRatio = 1.16;
+FrontRollSpringRate = 600;   % lbf/in, roll element reference rate
+FrontRollMotionRatio = 0.77;
 
+RearCornerSpringRate = 250;  % lbf/in, each rear corner spring
+RearCornerMotionRatio = 0.87;
+RearZBarSpringRate = 1450;   % lbf/in, rear Z-bar roll spring
+RearZBarMotionRatio = 0.1213;
+
+% Effective axle heave rates from the stated spring rates and motion ratios.
+% The front has one central heave element; the rear has two corner springs.
+FrontHeaveStiffness = FrontHeaveSpringRate * FrontHeaveMotionRatio^2;
+RearHeaveStiffness = 2 * RearCornerSpringRate * RearCornerMotionRatio^2;
+
+% Effective roll rates supplied for the model's linear roll dynamics.
+% RearRollStiffness includes the coupled corner-spring and Z-bar contribution.
 FrontRollStiffness = 18875;  % ft*lbf/rad
 RearRollStiffness  = 22285;  % ft*lbf/rad
-
-FrontHeaveStiffness = 400;   % lbf/in
-RearHeaveStiffness  = 375;   % lbf/in
 
 TotalRollStiffness = FrontRollStiffness + RearRollStiffness;
 
@@ -128,8 +142,7 @@ RearRollStiffnessDistribution = RearRollStiffness / TotalRollStiffness;
 
 %% Roll Damper Kinematics
 
-FrontRollMotionRatio = 0.77;
-RearRollMotionRatio  = 0.1213;
+RearRollMotionRatio = RearZBarMotionRatio;
 
 FrontRollDamperLever_in = FrontRollMotionRatio * FTrackwidth_in / 2;
 RearRollDamperLever_in  = RearRollMotionRatio  * RTrackwidth_in / 2;
